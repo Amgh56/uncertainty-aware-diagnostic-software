@@ -99,7 +99,7 @@ def make_constrained_calibration_set(
         extra = rng.choice(remaining_idx, size=need, replace=False).tolist()
         selected_idx = sorted(selected_idx + extra)
 
-    c0alib_df = df.iloc[selected_idx].copy()
+    calib_df = df.iloc[selected_idx].copy()
 
     if use_patient_exclusion and "Path" in df.columns:
         calib_df["_patient_id"] = calib_df["Path"].apply(extract_patient_id)
