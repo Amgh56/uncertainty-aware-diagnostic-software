@@ -1,6 +1,4 @@
-*.DS_store
-*CheXpert1
-*Chexpert.zip
+*.DS_Store
 *NIH_dataset
 *Chexpert
-#d
+*CheXpert1
