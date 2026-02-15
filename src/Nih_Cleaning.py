@@ -10,7 +10,7 @@ CHEX_COLUMNS = [
 ]
 BASE_DIR = Path(__file__).resolve().parent
 NIH_CSV = BASE_DIR / "NIH_dataset" / "Data_Entry_2017.csv"
-NIH_IMAGES_REL = "NIH_dataset/images-224" 
+NIH_IMAGES_REL = "NIH_dataset/images-224/images-224"
 
 def parse_age(x):
     if pd.isna(x): return np.nan

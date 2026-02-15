@@ -22,7 +22,24 @@ def load_paths_labels(
     repo_root: Path | None = None,
     sample_n: int | None = None,
     seed: int = 42,
+    images_root: Path | None = None, 
 ):
+    """
+    Load image paths + multi-label ground-truth from a CSV.
+
+    Reads `csv_path` (must contain columns: "Path" + DISEASES), optionally samples `sample_n`
+    rows with `seed`, resolves each image path to an absolute path, and builds a binary label
+    matrix for the 5 diseases.
+
+    Path resolution:
+      - If `images_root` is provided, each CSV path is mapped by filename into `images_root`.
+      - Otherwise, relative paths are resolved against `repo_root`, `SCRIPT_DIR`, or `ROOT_DIR`.
+
+    Returns:
+      abs_paths: list[Path]       # absolute resolved image paths (length N)
+      labels: np.ndarray          # shape (N, 5), values in {0,1}
+      pos_mask: np.ndarray        # shape (N,), True if a row has >=1 positive label
+    """
     csv_path = Path(csv_path)
 
     if repo_root is None:
@@ -40,18 +57,25 @@ def load_paths_labels(
 
     rel_paths = df["Path"].astype(str).tolist()
     abs_paths = []
-    for p in rel_paths:
-        rel = Path(p)
-        if rel.is_absolute():
-            candidate = rel
-        else:
-            candidates = [
-                repo_root / rel,
-                SCRIPT_DIR / rel,
-                ROOT_DIR / rel,
-            ]
-            candidate = next((c for c in candidates if c.exists()), candidates[0])
-        abs_paths.append(candidate.resolve())
+
+    if images_root is not None:
+            images_root = Path(images_root)
+            for p in rel_paths:
+                fname = Path(p).name           
+                candidate = images_root / fname   
+                if not candidate.exists():
+                    raise FileNotFoundError(f"Missing image in images_root: {candidate}")
+                abs_paths.append(candidate.resolve())
+    else:
+            for p in rel_paths:
+                rel = Path(p)
+                if rel.is_absolute():
+                    candidate = rel
+                else:
+                    candidates = [repo_root / rel, SCRIPT_DIR / rel, ROOT_DIR / rel]
+                    candidate = next((c for c in candidates if c.exists()), candidates[0])
+                abs_paths.append(candidate.resolve())
+
 
     labels = (
         df[DISEASES]
@@ -71,6 +95,10 @@ def load_paths_labels(
 
 
 def load_chexpert_pretrained_model():
+    """
+    Load CheXpert pretrained `Classifier` using `config/example.json` and `pre_train.pth`.
+    Returns (model, config) with model set to eval() mode.
+    """
     config_dir = CHEXPERT_DIR / "config"
 
     with open(config_dir / "example.json", "r") as f:
@@ -90,6 +118,9 @@ def load_chexpert_pretrained_model():
     return model, config
 
 def pick_device() -> str:
+    """
+        Specifiy where to run the model we usually use cuda as it is the fastest and stronges
+    """
     if torch.cuda.is_available():
         return "cuda"
     if not (hasattr(torch.backends, "mps") and torch.backends.mps.is_available()):
@@ -97,7 +128,10 @@ def pick_device() -> str:
     return "mps"
 
 def preprocess_image(img_path: Path, config) -> np.ndarray:
-
+    """
+    Read a grayscale image, resize to (config.width, config.height), optionally equalize,
+    normalize with (pixel_mean, pixel_std), and return as float32 array (3, H, W).
+    """
     img = cv2.imread(str(img_path), cv2.IMREAD_GRAYSCALE)
     if img is None:
         raise FileNotFoundError(f"Could not read image: {img_path}")
@@ -115,11 +149,16 @@ def preprocess_image(img_path: Path, config) -> np.ndarray:
 
 
 def make_batch(img_paths, config, device: str):
+    """
+    Preprocess a list of image paths, stack into a batch (B,3,H,W), and return a float32
+    torch tensor on the specified device.
+    """
     batch_np = np.stack([preprocess_image(p, config) for p in img_paths], axis=0) 
     x = torch.tensor(batch_np, dtype=torch.float32, device=device)
     return x
 
 def predict_batch_probs(model, x):
+    """Run model inference on a batch tensor and return sigmoid probabilities (B,5) as numpy."""
 
     model.eval()
     with torch.no_grad():
@@ -136,16 +175,8 @@ def predict_batch_probs(model, x):
         return probs
 
 def infer_all_probs(model, config, img_paths, batch_size: int = 16):
-    """
-    Step 2.4:
-    Runs inference on ALL img_paths in batches and returns:
-      sgmd: np.ndarray of shape (N,5)
+    """Run batched inference over all images and return probabilities array (N,5)."""
 
-    Uses:
-      - pick_device()
-      - make_batch()
-      - predict_batch_probs()
-    """
     device = pick_device()
     model = model.to(device)
 
@@ -153,13 +184,13 @@ def infer_all_probs(model, config, img_paths, batch_size: int = 16):
     for i in range(0, len(img_paths), batch_size):
         batch_paths = img_paths[i:i+batch_size]
         x = make_batch(batch_paths, config, device)
-        probs = predict_batch_probs(model, x)  # (B,5) numpy
+        probs = predict_batch_probs(model, x) 
         all_probs.append(probs)
 
         if (i // batch_size) % 10 == 0:
             print(f"Inferred {i}/{len(img_paths)}")
 
-    sgmd = np.concatenate(all_probs, axis=0)  # (N,5)
+    sgmd = np.concatenate(all_probs, axis=0)  
     return sgmd
 
 
@@ -180,28 +211,60 @@ def false_negative_rate(pred_set: np.ndarray, gt_labels: np.ndarray, pos_mask: n
 
 
 def compute_lamhat(cal_sgmd: np.ndarray, cal_labels: np.ndarray, cal_pos_mask: np.ndarray, alpha: float) -> float:
-    # Only use rows with >=1 true positive (your rule)
     sgmd = cal_sgmd[cal_pos_mask]
     labels = cal_labels[cal_pos_mask]
     n = sgmd.shape[0]
 
     target = ((n + 1) / n) * alpha - (1 / n)
 
-    # Candidate thresholds: all unique predicted probabilities in calibration
     candidates = np.unique(sgmd)
     candidates.sort()
 
-    lamhat = candidates[0]  # default smallest threshold (largest sets)
+    lamhat = candidates[0]  
 
     for lam in candidates:
         pred_set = sgmd >= lam
-        fnr = false_negative_rate(pred_set, labels, np.ones(n, dtype=bool))  # mask already applied
+        fnr = false_negative_rate(pred_set, labels, np.ones(n, dtype=bool)) 
         if fnr <= target:
             lamhat = lam
         else:
             break
 
     return float(lamhat)
+
+def evaluate_prediction_sets(pred_sets, labels, pos_mask):
+    n = pred_sets.shape[0]
+    set_sizes = pred_sets.sum(axis=1)
+
+    results = {
+        "fnr": false_negative_rate(pred_sets, labels, pos_mask),
+        "avg_set_size": float(set_sizes.mean()),
+        "median_set_size": float(np.median(set_sizes)),
+        "empty_set_rate": float((set_sizes == 0).mean()),
+        "full_set_rate": float((set_sizes == 5).mean()),
+        "size_distribution": {
+            int(s): int((set_sizes == s).sum()) for s in range(6)
+        },
+    }
+
+    per_disease = {}
+    for j, d in enumerate(DISEASES):
+        pos_j = labels[:, j] == 1
+        n_pos = int(pos_j.sum())
+        if n_pos > 0:
+            recall_j = pred_sets[pos_j, j].mean()
+            per_disease[d] = {
+                "n_positive": n_pos,
+                "recall": round(float(recall_j), 4),
+                "fnr": round(1.0 - float(recall_j), 4),
+                "pred_rate": round(float(pred_sets[:, j].mean()), 4),
+            }
+        else:
+            per_disease[d] = {"n_positive": 0, "recall": None, "fnr": None}
+    results["per_disease"] = per_disease
+
+    return results
+
 
 def save_lamhat_json(out_path: Path, lamhat: float, alpha: float, calib_csv: str, n_total: int, n_pos: int, batch_size: int):
     out_path = Path(out_path)
@@ -234,86 +297,136 @@ def prediction_set_names(probs_row: np.ndarray, lamhat: float) -> list[str]:
 
 if __name__ == "__main__":
     alpha = 0.1
-    batch_size = 32          
-    CAL_SAMPLE_N = 2500     
-    TEST_SAMPLE_N = 5000     
+    batch_size = 32
+
+    # ── KEY CHANGE: much larger splits ──
+    CAL_SAMPLE_N = 10_000
+    TEST_SAMPLE_N = 30_000
     SEED = 0
 
     data_dir = Path(__file__).resolve().parent / "NIH_dataset"
-    calib_csv = data_dir / "calibration_2500.csv"
+    
+    images_root_1024 = SCRIPT_DIR / "NIH_images_1024"
+
+
+    # ── UPDATE: point to the new 10k calibration CSV ──
+    calib_csv = data_dir / "calibration_10000.csv"
     test_csv  = data_dir / "remaining_after_calib.csv"
     art_dir   = data_dir / "artifacts"
     lamhat_path = art_dir / "lamhat.json"
 
     # -------------------- CALIBRATION --------------------
     cal_paths, cal_labels, cal_pos_mask = load_paths_labels(
-        calib_csv, sample_n=CAL_SAMPLE_N, seed=SEED
-    )
+    calib_csv, sample_n=CAL_SAMPLE_N, seed=SEED, images_root=images_root_1024
+)
 
     print("\n==================== CALIBRATION ====================")
-    print("Loaded calibration:")
-    print("  N paths:", len(cal_paths))
-    print("  labels shape:", cal_labels.shape)
-    print("  positive rows (used for FNR):", int(cal_pos_mask.sum()), "/", len(cal_pos_mask))
-    print("  example path:", cal_paths[0])
-    print("  example labels:", dict(zip(DISEASES, cal_labels[0].tolist())))
+    print(f"  N paths: {len(cal_paths)}")
+    print(f"  labels shape: {cal_labels.shape}")
+    print(f"  positive rows: {int(cal_pos_mask.sum())} / {len(cal_pos_mask)}"
+          f"  ({cal_pos_mask.mean():.1%})")
+    print(f"  example path: {cal_paths[0]}")
 
     model, config = load_chexpert_pretrained_model()
     device = pick_device()
-    print("\nDevice selected:", device)
+    print(f"\nDevice: {device}")
 
+    print("\nRunning calibration inference...")
     cal_sgmd = infer_all_probs(model, config, cal_paths, batch_size=batch_size)
 
-    print("\nCalibration inference output:")
-    print("  cal_sgmd shape:", cal_sgmd.shape)
-    print("  cal_sgmd min/max:", float(cal_sgmd.min()), float(cal_sgmd.max()))
-    print("  first probs row:", np.round(cal_sgmd[0], 4))
+    print(f"\n  cal_sgmd shape: {cal_sgmd.shape}")
+    print(f"  min/max: {float(cal_sgmd.min()):.6f} / {float(cal_sgmd.max()):.6f}")
+    print(f"  first probs: {np.round(cal_sgmd[0], 4)}")
 
     lamhat = compute_lamhat(cal_sgmd, cal_labels, cal_pos_mask, alpha)
-    fnr_cal = false_negative_rate((cal_sgmd >= lamhat), cal_labels, cal_pos_mask)
 
-    print("\nCalibration results:")
-    print("  alpha:", alpha)
-    print("  lamhat:", lamhat)
-    print("  calibration FNR at lamhat:", fnr_cal)
+    print(f"\n── Calibration Results ──")
+    print(f"  alpha:  {alpha}")
+    print(f"  lamhat: {lamhat:.6f}")
 
-    # Save lamhat for reuse
+    cal_pred_sets = cal_sgmd >= lamhat
+    cal_eval = evaluate_prediction_sets(cal_pred_sets, cal_labels, cal_pos_mask)
+
+    print(f"  cal FNR:           {cal_eval['fnr']:.4f}")
+    print(f"  avg set size:      {cal_eval['avg_set_size']:.2f}")
+    print(f"  median set size:   {cal_eval['median_set_size']:.1f}")
+    print(f"  empty set rate:    {cal_eval['empty_set_rate']:.3f}")
+    print(f"  full set rate:     {cal_eval['full_set_rate']:.3f}")
+    print(f"  size distribution: {cal_eval['size_distribution']}")
+    print(f"  per-disease:")
+    for d, info in cal_eval["per_disease"].items():
+        if info["recall"] is not None:
+            print(f"    {d:20s}  n={info['n_positive']:5d}  recall={info['recall']:.4f}  pred_rate={info['pred_rate']:.4f}")
+
     save_lamhat_json(
         out_path=lamhat_path,
         lamhat=lamhat,
         alpha=alpha,
-        calib_csv="NIH_dataset/calibration_2500.csv",
+        calib_csv=str(calib_csv.relative_to(data_dir.parent)),
         n_total=len(cal_paths),
         n_pos=int(cal_pos_mask.sum()),
         batch_size=batch_size,
     )
 
-    # Optional: cache calibration scores (useful on Iridis to avoid recompute)
     art_dir.mkdir(parents=True, exist_ok=True)
     np.save(art_dir / "cal_sgmd.npy", cal_sgmd)
     print(f"Saved calibration scores -> {art_dir / 'cal_sgmd.npy'}")
 
     # -------------------- TEST --------------------
     test_paths, test_labels, test_pos_mask = load_paths_labels(
-        test_csv, sample_n=TEST_SAMPLE_N, seed=SEED
-    )
+    test_csv, sample_n=TEST_SAMPLE_N, seed=SEED, images_root=images_root_1024
+)
 
-    print("\n======================= TEST =======================")
-    print("Loaded test:")
-    print("  N paths:", len(test_paths))
-    print("  positive rows (used for FNR):", int(test_pos_mask.sum()), "/", len(test_pos_mask))
+    print(f"\n======================= TEST =======================")
+    print(f"  N paths: {len(test_paths)}")
+    print(f"  positive rows: {int(test_pos_mask.sum())} / {len(test_pos_mask)}"
+          f"  ({test_pos_mask.mean():.1%})")
 
+    print("\nRunning test inference...")
     test_sgmd = infer_all_probs(model, config, test_paths, batch_size=batch_size)
 
-    fnr_test = false_negative_rate((test_sgmd >= lamhat), test_labels, test_pos_mask)
+    test_pred_sets = test_sgmd >= lamhat
+    test_eval = evaluate_prediction_sets(test_pred_sets, test_labels, test_pos_mask)
 
-    print("\nTest results (using calibration lamhat):")
-    print("  test FNR:", fnr_test)
+    print(f"\n── Test Results (lamhat={lamhat:.6f}) ──")
+    print(f"  test FNR:          {test_eval['fnr']:.4f}")
+    print(f"  avg set size:      {test_eval['avg_set_size']:.2f}")
+    print(f"  median set size:   {test_eval['median_set_size']:.1f}")
+    print(f"  empty set rate:    {test_eval['empty_set_rate']:.3f}")
+    print(f"  full set rate:     {test_eval['full_set_rate']:.3f}")
+    print(f"  size distribution: {test_eval['size_distribution']}")
+    print(f"  per-disease:")
+    for d, info in test_eval["per_disease"].items():
+        if info["recall"] is not None:
+            print(f"    {d:20s}  n={info['n_positive']:5d}  recall={info['recall']:.4f}  pred_rate={info['pred_rate']:.4f}")
 
     np.save(art_dir / "test_sgmd.npy", test_sgmd)
     print(f"Saved test scores -> {art_dir / 'test_sgmd.npy'}")
 
-    print("\n[Test] 10 example prediction sets:")
+    # Save full evaluation as JSON for the report
+    eval_path = art_dir / "evaluation.json"
+    eval_payload = {
+        "alpha": alpha,
+        "lamhat": lamhat,
+        "calibration": cal_eval,
+        "test": test_eval,
+        "n_cal": len(cal_paths),
+        "n_test": len(test_paths),
+    }
+    # Convert numpy types for JSON
+    def _convert(obj):
+        if isinstance(obj, (np.integer,)): return int(obj)
+        if isinstance(obj, (np.floating,)): return float(obj)
+        if isinstance(obj, dict): return {k: _convert(v) for k, v in obj.items()}
+        if isinstance(obj, list): return [_convert(v) for v in obj]
+        return obj
+
+    with open(eval_path, "w") as f:
+        json.dump(_convert(eval_payload), f, indent=2)
+    print(f"Saved evaluation -> {eval_path}")
+
+    # ── Sample prediction sets ──
+    print(f"\n[Test] 10 example prediction sets:")
     rng = np.random.default_rng(SEED)
     k = min(10, len(test_paths))
     idxs = rng.choice(len(test_paths), size=k, replace=False)
@@ -322,8 +435,8 @@ if __name__ == "__main__":
         pred_names = prediction_set_names(test_sgmd[i], lamhat)
         true_names = [DISEASES[j] for j in range(5) if test_labels[i, j] == 1]
 
-        print(f"\nExample idx {i}")
-        print("  Path:", test_paths[i])
-        print("  True:", true_names)
-        print("  Probs:", np.round(test_sgmd[i], 4))
-        print("  Prediction set:", pred_names)
+        print(f"\n  idx {i}")
+        print(f"    Path: {test_paths[i]}")
+        print(f"    True: {true_names}")
+        print(f"    Probs: {np.round(test_sgmd[i], 4)}")
+        print(f"    Prediction set ({len(pred_names)}): {pred_names}")
