@@ -4,3 +4,6 @@
 *CheXpert1
 *NIH_dataset.tar
 *__pycache__
+src/frontend/node_modules
+src/frontend/dist
+*.env

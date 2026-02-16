@@ -4,17 +4,28 @@ import pandas as pd
 import json
 import sys
 import torch
-import cv2
 
 
 SCRIPT_DIR = Path(__file__).resolve().parent     
 ROOT_DIR = SCRIPT_DIR.parent                   
-CHEXPERT_DIR = ROOT_DIR / "Chexpert"             
+REPO_ROOT = ROOT_DIR.parent
+CHEXPERT_CANDIDATES = [ROOT_DIR / "Chexpert", REPO_ROOT / "Chexpert"]
+CHEXPERT_DIR = next((p for p in CHEXPERT_CANDIDATES if p.exists()), CHEXPERT_CANDIDATES[-1])
 
 sys.path.insert(0, str(CHEXPERT_DIR))
 from model.classifier import Classifier
 
 DISEASES = ["Cardiomegaly", "Edema", "Consolidation", "Atelectasis", "Pleural Effusion"]
+
+
+def _require_cv2():
+    try:
+        import cv2  
+    except ModuleNotFoundError as exc:
+        raise ModuleNotFoundError(
+            "OpenCV is required for image preprocessing. Install with: pip install opencv-python"
+        ) from exc
+    return cv2
 
 
 def load_paths_labels(
@@ -127,15 +138,11 @@ def pick_device() -> str:
         return "cpu"
     return "mps"
 
-def preprocess_image(img_path: Path, config) -> np.ndarray:
+def preprocess_grayscale_image(img: np.ndarray, config) -> np.ndarray:
     """
-    Read a grayscale image, resize to (config.width, config.height), optionally equalize,
-    normalize with (pixel_mean, pixel_std), and return as float32 array (3, H, W).
+    Convert a grayscale image array to model input format (3, H, W) float32.
     """
-    img = cv2.imread(str(img_path), cv2.IMREAD_GRAYSCALE)
-    if img is None:
-        raise FileNotFoundError(f"Could not read image: {img_path}")
-
+    cv2 = _require_cv2()
     img = cv2.resize(img, (config.width, config.height))
 
     if getattr(config, "use_equalizeHist", False):
@@ -144,8 +151,32 @@ def preprocess_image(img_path: Path, config) -> np.ndarray:
     img = img.astype(np.float32)
     img = (img - config.pixel_mean) / config.pixel_std
 
-    img = np.stack([img, img, img], axis=0)  
+    img = np.stack([img, img, img], axis=0)
     return img
+
+
+def preprocess_image_from_bytes(img_bytes: bytes, config) -> np.ndarray:
+    """
+    Decode image bytes to grayscale and preprocess to model input format.
+    """
+    cv2 = _require_cv2()
+    nparr = np.frombuffer(img_bytes, np.uint8)
+    img = cv2.imdecode(nparr, cv2.IMREAD_GRAYSCALE)
+    if img is None:
+        raise ValueError("Could not decode image bytes")
+    return preprocess_grayscale_image(img, config)
+
+
+def preprocess_image(img_path: Path, config) -> np.ndarray:
+    """
+    Read a grayscale image, resize to (config.width, config.height), optionally equalize,
+    normalize with (pixel_mean, pixel_std), and return as float32 array (3, H, W).
+    """
+    cv2 = _require_cv2()
+    img = cv2.imread(str(img_path), cv2.IMREAD_GRAYSCALE)
+    if img is None:
+        raise FileNotFoundError(f"Could not read image: {img_path}")
+    return preprocess_grayscale_image(img, config)
 
 
 def make_batch(img_paths, config, device: str):
@@ -298,8 +329,6 @@ def prediction_set_names(probs_row: np.ndarray, lamhat: float) -> list[str]:
 if __name__ == "__main__":
     alpha = 0.1
     batch_size = 32
-
-    # ── KEY CHANGE: much larger splits ──
     CAL_SAMPLE_N = 10_000
     TEST_SAMPLE_N = 30_000
     SEED = 0
