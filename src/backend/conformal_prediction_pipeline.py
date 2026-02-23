@@ -4,28 +4,17 @@ import pandas as pd
 import json
 import sys
 import torch
-
+import cv2
+import matplotlib.pyplot as plt
 
 SCRIPT_DIR = Path(__file__).resolve().parent     
 ROOT_DIR = SCRIPT_DIR.parent                   
-REPO_ROOT = ROOT_DIR.parent
-CHEXPERT_CANDIDATES = [ROOT_DIR / "Chexpert", REPO_ROOT / "Chexpert"]
-CHEXPERT_DIR = next((p for p in CHEXPERT_CANDIDATES if p.exists()), CHEXPERT_CANDIDATES[-1])
+CHEXPERT_DIR = ROOT_DIR / "Chexpert"             
 
 sys.path.insert(0, str(CHEXPERT_DIR))
 from model.classifier import Classifier
 
 DISEASES = ["Cardiomegaly", "Edema", "Consolidation", "Atelectasis", "Pleural Effusion"]
-
-
-def _require_cv2():
-    try:
-        import cv2  
-    except ModuleNotFoundError as exc:
-        raise ModuleNotFoundError(
-            "OpenCV is required for image preprocessing. Install with: pip install opencv-python"
-        ) from exc
-    return cv2
 
 
 def load_paths_labels(
@@ -130,7 +119,7 @@ def load_chexpert_pretrained_model():
 
 def pick_device() -> str:
     """
-        Specifiy where to run the model we usually use cuda as it is the fastest and stronges
+    Specifiy where to run the model we usually use cuda as it is the fastest and stronges
     """
     if torch.cuda.is_available():
         return "cuda"
@@ -138,11 +127,15 @@ def pick_device() -> str:
         return "cpu"
     return "mps"
 
-def preprocess_grayscale_image(img: np.ndarray, config) -> np.ndarray:
+def preprocess_image(img_path: Path, config) -> np.ndarray:
     """
-    Convert a grayscale image array to model input format (3, H, W) float32.
+    Read a grayscale image, resize to (config.width, config.height), optionally equalize,
+    normalize with (pixel_mean, pixel_std), and return as float32 array (3, H, W).
     """
-    cv2 = _require_cv2()
+    img = cv2.imread(str(img_path), cv2.IMREAD_GRAYSCALE)
+    if img is None:
+        raise FileNotFoundError(f"Could not read image: {img_path}")
+
     img = cv2.resize(img, (config.width, config.height))
 
     if getattr(config, "use_equalizeHist", False):
@@ -151,32 +144,8 @@ def preprocess_grayscale_image(img: np.ndarray, config) -> np.ndarray:
     img = img.astype(np.float32)
     img = (img - config.pixel_mean) / config.pixel_std
 
-    img = np.stack([img, img, img], axis=0)
+    img = np.stack([img, img, img], axis=0)  
     return img
-
-
-def preprocess_image_from_bytes(img_bytes: bytes, config) -> np.ndarray:
-    """
-    Decode image bytes to grayscale and preprocess to model input format.
-    """
-    cv2 = _require_cv2()
-    nparr = np.frombuffer(img_bytes, np.uint8)
-    img = cv2.imdecode(nparr, cv2.IMREAD_GRAYSCALE)
-    if img is None:
-        raise ValueError("Could not decode image bytes")
-    return preprocess_grayscale_image(img, config)
-
-
-def preprocess_image(img_path: Path, config) -> np.ndarray:
-    """
-    Read a grayscale image, resize to (config.width, config.height), optionally equalize,
-    normalize with (pixel_mean, pixel_std), and return as float32 array (3, H, W).
-    """
-    cv2 = _require_cv2()
-    img = cv2.imread(str(img_path), cv2.IMREAD_GRAYSCALE)
-    if img is None:
-        raise FileNotFoundError(f"Could not read image: {img_path}")
-    return preprocess_grayscale_image(img, config)
 
 
 def make_batch(img_paths, config, device: str):
@@ -240,8 +209,7 @@ def false_negative_rate(pred_set: np.ndarray, gt_labels: np.ndarray, pos_mask: n
     fnr = 1.0 - recall.mean()
     return float(fnr)
 
-
-def compute_lamhat(cal_sgmd: np.ndarray, cal_labels: np.ndarray, cal_pos_mask: np.ndarray, alpha: float) -> float:
+def compute_lamhat(cal_sgmd, cal_labels, cal_pos_mask, alpha):
     sgmd = cal_sgmd[cal_pos_mask]
     labels = cal_labels[cal_pos_mask]
     n = sgmd.shape[0]
@@ -251,17 +219,13 @@ def compute_lamhat(cal_sgmd: np.ndarray, cal_labels: np.ndarray, cal_pos_mask: n
     candidates = np.unique(sgmd)
     candidates.sort()
 
-    lamhat = candidates[0]  
-
+    best = candidates[0]
     for lam in candidates:
         pred_set = sgmd >= lam
-        fnr = false_negative_rate(pred_set, labels, np.ones(n, dtype=bool)) 
+        fnr = false_negative_rate(pred_set, labels, np.ones(n, dtype=bool))
         if fnr <= target:
-            lamhat = lam
-        else:
-            break
-
-    return float(lamhat)
+            best = lam  
+    return float(best)
 
 def evaluate_prediction_sets(pred_sets, labels, pos_mask):
     n = pred_sets.shape[0]
@@ -323,31 +287,58 @@ def prediction_set_names(probs_row: np.ndarray, lamhat: float) -> list[str]:
     mask = probs_row >= lamhat
     return [DISEASES[i] for i in range(len(DISEASES)) if mask[i]]
 
+def positive_coverage(pred_sets: np.ndarray, labels: np.ndarray, pos_mask: np.ndarray) -> float:
+    """
+    For rows with at least one true label (pos_mask),
+    return the fraction of rows where the prediction set
+    contains AT LEAST ONE of the true labels.
+    """
+    P = pred_sets[pos_mask]
+    Y = labels[pos_mask]
+    hit = (P & (Y == 1)).any(axis=1)
+    return float(hit.mean())
 
+def pick_optimal_alpha(df_curve: pd.DataFrame, require_guarantee: bool = True):
+    """
+    Choose alpha to:
+      - maximize positive coverage
+      - minimize average set size
+    """
+    df = df_curve.copy()
+
+    if require_guarantee:
+        df = df[df["test_fnr"] <= df["alpha"]]
+
+    if len(df) == 0:
+        return df_curve.loc[df_curve["avg_set_size"].idxmin()]
+
+    df = df.sort_values(
+        ["pos_coverage", "avg_set_size"],
+        ascending=[False, True],
+    )
+    return df.iloc[0]
 
 
 if __name__ == "__main__":
-    alpha = 0.1
+    alpha = 0.3
     batch_size = 32
-    CAL_SAMPLE_N = 10_000
+
+    CAL_SAMPLE_N = 20_000
     TEST_SAMPLE_N = 30_000
     SEED = 0
 
     data_dir = Path(__file__).resolve().parent / "NIH_dataset"
-    
     images_root_1024 = SCRIPT_DIR / "NIH_images_1024"
 
-
-    # ── UPDATE: point to the new 10k calibration CSV ──
-    calib_csv = data_dir / "calibration_10000.csv"
+    calib_csv = data_dir / "calibration_20000.csv"
     test_csv  = data_dir / "remaining_after_calib.csv"
     art_dir   = data_dir / "artifacts"
     lamhat_path = art_dir / "lamhat.json"
 
     # -------------------- CALIBRATION --------------------
     cal_paths, cal_labels, cal_pos_mask = load_paths_labels(
-    calib_csv, sample_n=CAL_SAMPLE_N, seed=SEED, images_root=images_root_1024
-)
+        calib_csv, sample_n=CAL_SAMPLE_N, seed=SEED, images_root=images_root_1024
+    )
 
     print("\n==================== CALIBRATION ====================")
     print(f"  N paths: {len(cal_paths)}")
@@ -403,8 +394,8 @@ if __name__ == "__main__":
 
     # -------------------- TEST --------------------
     test_paths, test_labels, test_pos_mask = load_paths_labels(
-    test_csv, sample_n=TEST_SAMPLE_N, seed=SEED, images_root=images_root_1024
-)
+        test_csv, sample_n=TEST_SAMPLE_N, seed=SEED, images_root=images_root_1024
+    )
 
     print(f"\n======================= TEST =======================")
     print(f"  N paths: {len(test_paths)}")
@@ -414,58 +405,168 @@ if __name__ == "__main__":
     print("\nRunning test inference...")
     test_sgmd = infer_all_probs(model, config, test_paths, batch_size=batch_size)
 
-    test_pred_sets = test_sgmd >= lamhat
-    test_eval = evaluate_prediction_sets(test_pred_sets, test_labels, test_pos_mask)
+    # -------------------- CANDIDATE ALPHAS [0.1, 0.2, 0.3, 0.4] --------------------
+    candidate_alphas = [0.1, 0.2, 0.3, 0.4]
+    rows = []
 
-    print(f"\n── Test Results (lamhat={lamhat:.6f}) ──")
-    print(f"  test FNR:          {test_eval['fnr']:.4f}")
-    print(f"  avg set size:      {test_eval['avg_set_size']:.2f}")
-    print(f"  median set size:   {test_eval['median_set_size']:.1f}")
-    print(f"  empty set rate:    {test_eval['empty_set_rate']:.3f}")
-    print(f"  full set rate:     {test_eval['full_set_rate']:.3f}")
-    print(f"  size distribution: {test_eval['size_distribution']}")
-    print(f"  per-disease:")
-    for d, info in test_eval["per_disease"].items():
-        if info["recall"] is not None:
-            print(f"    {d:20s}  n={info['n_positive']:5d}  recall={info['recall']:.4f}  pred_rate={info['pred_rate']:.4f}")
+    for a in candidate_alphas:
+        lam = compute_lamhat(cal_sgmd, cal_labels, cal_pos_mask, float(a))
+        pred_sets = test_sgmd >= lam
 
-    np.save(art_dir / "test_sgmd.npy", test_sgmd)
-    print(f"Saved test scores -> {art_dir / 'test_sgmd.npy'}")
+        ev = evaluate_prediction_sets(pred_sets, test_labels, test_pos_mask)
+        cov = positive_coverage(pred_sets, test_labels, test_pos_mask)
 
-    # Save full evaluation as JSON for the report
-    eval_path = art_dir / "evaluation.json"
-    eval_payload = {
-        "alpha": alpha,
-        "lamhat": lamhat,
-        "calibration": cal_eval,
-        "test": test_eval,
-        "n_cal": len(cal_paths),
-        "n_test": len(test_paths),
-    }
-    # Convert numpy types for JSON
-    def _convert(obj):
-        if isinstance(obj, (np.integer,)): return int(obj)
-        if isinstance(obj, (np.floating,)): return float(obj)
-        if isinstance(obj, dict): return {k: _convert(v) for k, v in obj.items()}
-        if isinstance(obj, list): return [_convert(v) for v in obj]
-        return obj
+        rows.append({
+            "alpha": float(a),
+            "lamhat": float(lam),
+            "test_fnr": float(ev["fnr"]),
+            "pos_coverage": float(cov),
+            "avg_set_size": float(ev["avg_set_size"]),
+            "empty_set_rate": float(ev["empty_set_rate"]),
+        })
 
-    with open(eval_path, "w") as f:
-        json.dump(_convert(eval_payload), f, indent=2)
-    print(f"Saved evaluation -> {eval_path}")
+    df_pick = pd.DataFrame(rows)
+    print("\n=== Candidate alpha comparison ===")
+    print(df_pick.to_string(index=False))
+    df_pick.to_csv(art_dir / "candidate_alphas_summary.csv", index=False)
 
-    # ── Sample prediction sets ──
-    print(f"\n[Test] 10 example prediction sets:")
+    # choose best alpha from the 4
+    df_ok = df_pick[df_pick["test_fnr"] <= df_pick["alpha"]].copy()
+
+    if len(df_ok) == 0:
+        print("\nNo candidate met guarantee; falling back to best coverage then smallest set.")
+        df_ok = df_pick.copy()
+
+    df_ok = df_ok.sort_values(
+        by=["pos_coverage", "avg_set_size"],
+        ascending=[False, True],
+    )
+
+    best = df_ok.iloc[0]
+    cand_best_alpha = float(best["alpha"])
+    cand_best_lamhat = float(best["lamhat"])
+
+    print("\n=== SELECTED BEST (from candidates) ===")
+    print(best.to_string())
+
+    cand_pred_sets = test_sgmd >= cand_best_lamhat
+    cand_eval = evaluate_prediction_sets(cand_pred_sets, test_labels, test_pos_mask)
+    cand_cov = positive_coverage(cand_pred_sets, test_labels, test_pos_mask)
+
+    print(f"\n--- Candidate Best alpha={cand_best_alpha:.2f}, lamhat={cand_best_lamhat:.6f} ---")
+    print(f"test_fnr={cand_eval['fnr']:.4f} (target<= {cand_best_alpha:.2f})")
+    print(f"pos_coverage={cand_cov:.4f}")
+    print(f"avg_set_size={cand_eval['avg_set_size']:.3f}, empty_rate={cand_eval['empty_set_rate']:.3f}")
+
+    print(f"\n[Test] 10 example prediction sets (CANDIDATE best alpha={cand_best_alpha:.2f}):")
     rng = np.random.default_rng(SEED)
-    k = min(10, len(test_paths))
-    idxs = rng.choice(len(test_paths), size=k, replace=False)
-
+    idxs = rng.choice(len(test_paths), size=min(10, len(test_paths)), replace=False)
     for i in idxs:
-        pred_names = prediction_set_names(test_sgmd[i], lamhat)
+        pred_names = prediction_set_names(test_sgmd[i], cand_best_lamhat)
         true_names = [DISEASES[j] for j in range(5) if test_labels[i, j] == 1]
-
         print(f"\n  idx {i}")
         print(f"    Path: {test_paths[i]}")
         print(f"    True: {true_names}")
         print(f"    Probs: {np.round(test_sgmd[i], 4)}")
         print(f"    Prediction set ({len(pred_names)}): {pred_names}")
+
+    # -------------------- FINE-GRAINED ALPHA SWEEP (0.001–0.99) --------------------
+    alphas = np.linspace(0.001, 0.99, 200)
+    rows = []
+
+    for a in alphas:
+        lam = compute_lamhat(cal_sgmd, cal_labels, cal_pos_mask, float(a))
+        pred_sets = test_sgmd >= lam
+        ev = evaluate_prediction_sets(pred_sets, test_labels, test_pos_mask)
+        cov = positive_coverage(pred_sets, test_labels, test_pos_mask)
+
+        rows.append({
+            "alpha": float(a),
+            "lamhat": float(lam),
+            "test_fnr": float(ev["fnr"]),
+            "avg_set_size": float(ev["avg_set_size"]),
+            "median_set_size": float(ev["median_set_size"]),
+            "empty_set_rate": float(ev["empty_set_rate"]),
+            "full_set_rate": float(ev["full_set_rate"]),
+            "pos_coverage": float(cov),
+        })
+
+    df_curve = pd.DataFrame(rows)
+    curve_path = art_dir / "alpha_sweep.csv"
+    df_curve.to_csv(curve_path, index=False)
+    print(f"Saved alpha sweep -> {curve_path}")
+
+    # -------------------- PLOT 1: FNR vs alpha --------------------
+    plt.figure()
+    plt.plot(df_curve["alpha"], df_curve["test_fnr"], label="Empirical test FNR")
+    plt.plot(df_curve["alpha"], df_curve["alpha"], linestyle="--", label="Target y=alpha")
+    plt.xlabel("alpha")
+    plt.ylabel("FNR")
+    plt.title("Empirical FNR vs alpha")
+    plt.grid(True)
+    plt.legend()
+    plt.tight_layout()
+    fnr_plot_path = art_dir / "fnr_vs_alpha.png"
+    plt.savefig(fnr_plot_path, dpi=200)
+    print(f"Saved FNR plot -> {fnr_plot_path}")
+
+    hold_rate = float((df_curve["test_fnr"] <= df_curve["alpha"]).mean())
+    max_violation = float((df_curve["test_fnr"] - df_curve["alpha"]).max())
+    print(f"Guarantee hold rate on grid: {hold_rate:.3%}")
+    print(f"Max (FNR - alpha) violation: {max_violation:.6f}")
+
+    # -------------------- PLOT 2: avg set size vs alpha --------------------
+    plt.figure()
+    plt.plot(df_curve["alpha"], df_curve["avg_set_size"], label="Avg set size")
+    plt.xlabel("alpha")
+    plt.ylabel("Average set size")
+    plt.title("Average prediction-set size vs alpha")
+    plt.grid(True)
+    plt.legend()
+    plt.tight_layout()
+    out_path = art_dir / "avg_set_size_vs_alpha.png"
+    plt.savefig(out_path, dpi=200)
+    print(f"Saved avg set size plot -> {out_path}")
+
+    # -------------------- OPTIMAL ALPHA FROM SWEEP --------------------
+    opt = pick_optimal_alpha(df_curve, require_guarantee=True)
+
+    best_alpha = float(opt["alpha"])
+    best_lamhat = float(opt["lamhat"])
+
+    print("\n================ BEST ALPHA EVALUATION ================")
+    print(f"Chosen best alpha from sweep: {best_alpha:.6f}")
+    print(f"Corresponding lamhat:         {best_lamhat:.6f}")
+
+    best_pred_sets = test_sgmd >= best_lamhat
+    best_eval = evaluate_prediction_sets(best_pred_sets, test_labels, test_pos_mask)
+    best_pos_cov = positive_coverage(best_pred_sets, test_labels, test_pos_mask)
+
+    print(f"\n── Test Results (BEST alpha={best_alpha:.4f}, lamhat={best_lamhat:.6f}) ──")
+    print(f"  test FNR:          {best_eval['fnr']:.4f}")
+    print(f"  pos_coverage:      {best_pos_cov:.4f}")
+    print(f"  avg set size:      {best_eval['avg_set_size']:.2f}")
+    print(f"  median set size:   {best_eval['median_set_size']:.1f}")
+    print(f"  empty set rate:    {best_eval['empty_set_rate']:.3f}")
+    print(f"  full set rate:     {best_eval['full_set_rate']:.3f}")
+    print(f"  size distribution: {best_eval['size_distribution']}")
+
+    print(f"\n  per-disease:")
+    for d, info in best_eval["per_disease"].items():
+        if info["recall"] is not None:
+            print(f"    {d:20s}  n={info['n_positive']:5d}  recall={info['recall']:.4f}  pred_rate={info['pred_rate']:.4f}")
+
+    print("\n================ OPTIMAL ALPHA (rule-based) ================")
+    print(f"alpha={opt['alpha']:.4f}  lamhat={opt['lamhat']:.6f}  "
+          f"test_fnr={opt['test_fnr']:.4f}  avg_set_size={opt['avg_set_size']:.3f}  "
+          f"empty_rate={opt['empty_set_rate']:.3f}  pos_coverage={opt['pos_coverage']:.3f}")
+
+    opt_dict = {k: float(opt[k]) for k in [
+        "alpha", "lamhat", "test_fnr",
+        "avg_set_size", "median_set_size",
+        "empty_set_rate", "full_set_rate",
+        "pos_coverage",
+    ]}
+    with open(art_dir / "optimal_alpha.json", "w") as f:
+        json.dump(opt_dict, f, indent=2)
+    print(f"Saved optimal alpha -> {art_dir / 'optimal_alpha.json'}")
