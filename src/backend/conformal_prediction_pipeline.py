@@ -7,8 +7,8 @@ import torch
 import cv2
 import matplotlib.pyplot as plt
 
-SCRIPT_DIR = Path(__file__).resolve().parent     
-ROOT_DIR = SCRIPT_DIR.parent                   
+SCRIPT_DIR = Path(__file__).resolve().parent
+ROOT_DIR = SCRIPT_DIR.parent.parent
 CHEXPERT_DIR = ROOT_DIR / "Chexpert"             
 
 sys.path.insert(0, str(CHEXPERT_DIR))
@@ -145,6 +145,29 @@ def preprocess_image(img_path: Path, config) -> np.ndarray:
     img = (img - config.pixel_mean) / config.pixel_std
 
     img = np.stack([img, img, img], axis=0)  
+    return img
+
+
+def preprocess_image_from_bytes(img_bytes: bytes, config) -> np.ndarray:
+    """
+    Decode raw image bytes (PNG/JPEG) to grayscale, resize, normalize,
+    and return as float32 array (3, H, W). Same logic as preprocess_image
+    but reads from bytes instead of a file path.
+    """
+    arr = np.frombuffer(img_bytes, dtype=np.uint8)
+    img = cv2.imdecode(arr, cv2.IMREAD_GRAYSCALE)
+    if img is None:
+        raise ValueError("Could not decode image from uploaded bytes")
+
+    img = cv2.resize(img, (config.width, config.height))
+
+    if getattr(config, "use_equalizeHist", False):
+        img = cv2.equalizeHist(img)
+
+    img = img.astype(np.float32)
+    img = (img - config.pixel_mean) / config.pixel_std
+
+    img = np.stack([img, img, img], axis=0)
     return img
 
 

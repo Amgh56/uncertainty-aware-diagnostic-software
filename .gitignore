@@ -7,3 +7,5 @@
 src/frontend/node_modules
 src/frontend/dist
 *.env
+src/backend/app.db
+src/backend/uploads/

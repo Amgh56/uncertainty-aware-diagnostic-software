@@ -1,5 +1,8 @@
 import { useCallback, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { predictImage } from "../api/diagnosticApi";
+import { useAuth } from "../context/AuthContext";
+import PatientForm from "./PatientForm";
 
 const uncertaintyColors = {
   Low: { bg: "#dcfce7", text: "#166534", border: "#86efac" },
@@ -13,6 +16,10 @@ const statusColors = {
 };
 
 export default function DiagnosticDashboard() {
+  const { token, logout } = useAuth();
+  const navigate = useNavigate();
+
+  const [patient, setPatient] = useState(null);
   const [image, setImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [results, setResults] = useState(null);
@@ -62,7 +69,7 @@ export default function DiagnosticDashboard() {
   const handleUploadClick = () => fileInputRef.current?.click();
 
   const handlePredict = async () => {
-    if (!image) {
+    if (!image || !patient) {
       return;
     }
 
@@ -70,7 +77,7 @@ export default function DiagnosticDashboard() {
     setError(null);
 
     try {
-      const data = await predictImage(image);
+      const data = await predictImage(image, patient.id, token);
       setResults(data);
     } catch (requestError) {
       setError(requestError.message || "Failed to connect to the server");
@@ -80,6 +87,7 @@ export default function DiagnosticDashboard() {
   };
 
   const handleReset = () => {
+    setPatient(null);
     setImage(null);
     setImagePreview(null);
     setResults(null);
@@ -103,8 +111,13 @@ export default function DiagnosticDashboard() {
             </div>
           </div>
           <div className="dash-header-right">
-            <span className="dash-header-badge">CheXpert Model</span>
-            <span className="dash-header-badge">FNR &lt;= 10%</span>
+            <button className="nav-btn nav-icon-btn" onClick={() => navigate("/home")} title="Home">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+                <polyline points="9 22 9 12 15 12 15 22" />
+              </svg>
+            </button>
+            <button className="nav-btn logout-btn" onClick={logout}>Logout</button>
           </div>
         </div>
       </header>
@@ -115,10 +128,12 @@ export default function DiagnosticDashboard() {
             <div className="panel-header">
               <div>
                 <h2 className="panel-title">Chest X-ray</h2>
-                {image ? (
-                  <p className="panel-subtitle">{image.name}</p>
+                {patient ? (
+                  <p className="panel-subtitle">
+                    Patient: {patient.first_name} {patient.last_name} (MRN: {patient.mrn})
+                  </p>
                 ) : (
-                  <p className="panel-subtitle">Upload a posteroanterior (PA) chest radiograph</p>
+                  <p className="panel-subtitle">Enter patient information to begin</p>
                 )}
               </div>
               {image && (
@@ -130,7 +145,11 @@ export default function DiagnosticDashboard() {
             </div>
 
             <div className="panel-body">
-              {!imagePreview ? (
+              {!patient ? (
+                <div className="patient-form-wrapper">
+                  <PatientForm onPatientReady={(p) => setPatient(p)} />
+                </div>
+              ) : !imagePreview ? (
                 <div
                   className={`dropzone ${dragOver ? "dropzone-active" : ""}`}
                   onDrop={handleDrop}
@@ -225,7 +244,7 @@ export default function DiagnosticDashboard() {
                 </button>
               )}
 
-              {(image || results) && (
+              {(patient || image || results) && (
                 <button className="reset-btn" onClick={handleReset}>
                   Reset
                 </button>
@@ -257,7 +276,7 @@ export default function DiagnosticDashboard() {
                     <line x1="9" y1="21" x2="9" y2="9" />
                   </svg>
                   <p className="empty-title">No predictions yet</p>
-                  <p className="empty-hint">Upload a chest X-ray and click "Run Prediction" to generate a conformal prediction set.</p>
+                  <p className="empty-hint">Upload a chest X-ray and click &quot;Run Prediction&quot; to generate a conformal prediction set.</p>
                 </div>
               )}
 
@@ -356,7 +375,7 @@ export default function DiagnosticDashboard() {
 
                   <div className="note-box">
                     <p className="note-text">
-                      <strong>Note:</strong> Findings marked "In prediction set" have a &gt;{results.coverage} chance of containing the true diagnosis.
+                      <strong>Note:</strong> Findings marked &quot;In prediction set&quot; have a &gt;{results.coverage} chance of containing the true diagnosis.
                       Lower uncertainty indicates higher model confidence. Threshold (lamhat) = {results.lamhat.toFixed(4)}.
                     </p>
                   </div>
