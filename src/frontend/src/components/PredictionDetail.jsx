@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { getPrediction, API_URL } from "../api/diagnosticApi";
+import { getPrediction } from "../api/diagnosticApi";
 
 const uncertaintyColors = {
   Low: { bg: "#dcfce7", text: "#166534", border: "#86efac" },
@@ -96,7 +96,7 @@ export default function PredictionDetail() {
             <div className="panel-body">
               <div className="image-container">
                 <img
-                  src={`${API_URL}/${data.image_path}`}
+                  src={data.image_path}
                   alt="Chest X-ray"
                   className="xray-image"
                 />
