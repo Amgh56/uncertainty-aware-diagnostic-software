@@ -8,7 +8,7 @@ from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 
 from database import get_db
-from models import Doctor
+from models import Doctor, UserRole
 
 SECRET_KEY = os.getenv("JWT_SECRET_KEY", "change-me-in-production-use-a-real-secret")
 ALGORITHM = "HS256"
@@ -55,3 +55,15 @@ def get_current_doctor(
             detail="Doctor not found",
         )
     return doctor
+
+
+def require_developer(
+    current_doctor: Doctor = Depends(get_current_doctor),
+) -> Doctor:
+    """Dependency: same as get_current_doctor but also enforces DEVELOPER role."""
+    if current_doctor.role != UserRole.DEVELOPER:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Developer access required",
+        )
+    return current_doctor

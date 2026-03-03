@@ -16,6 +16,26 @@ from sqlalchemy.orm import relationship
 from database import Base
 
 
+# ---------------------------------------------------------------------------
+# Roles & Job status (plain strings — no DB Enum type for portability)
+# ---------------------------------------------------------------------------
+
+class UserRole:
+    CLINICIAN = "clinician"
+    DEVELOPER = "developer"
+
+
+class JobStatus:
+    QUEUED = "queued"
+    RUNNING = "running"
+    DONE = "done"
+    FAILED = "failed"
+
+
+# ---------------------------------------------------------------------------
+# Existing models
+# ---------------------------------------------------------------------------
+
 class Doctor(Base):
     __tablename__ = "doctors"
 
@@ -23,12 +43,15 @@ class Doctor(Base):
     email = Column(String(255), unique=True, nullable=False, index=True)
     hashed_password = Column(String(255), nullable=False)
     full_name = Column(String(255), nullable=False)
+    role = Column(String(20), nullable=False, default=UserRole.CLINICIAN,
+                  server_default=UserRole.CLINICIAN)
     created_at = Column(
         DateTime, nullable=False, default=lambda: datetime.now(timezone.utc)
     )
 
     patients = relationship("Patient", back_populates="doctor")
     predictions = relationship("Prediction", back_populates="doctor")
+    calibration_jobs = relationship("CalibrationJob", back_populates="developer")
 
 
 class Patient(Base):
@@ -76,3 +99,31 @@ class Prediction(Base):
 
     patient = relationship("Patient", back_populates="predictions")
     doctor = relationship("Doctor", back_populates="predictions")
+
+
+# ---------------------------------------------------------------------------
+# Developer / Researcher models
+# ---------------------------------------------------------------------------
+
+class CalibrationJob(Base):
+    __tablename__ = "calibration_jobs"
+    __table_args__ = (
+        Index("ix_calib_job_developer", "developer_id"),
+    )
+
+    id = Column(String(36), primary_key=True)           # UUID string
+    developer_id = Column(Integer, ForeignKey("doctors.id"), nullable=False)
+    status = Column(String(20), nullable=False, default=JobStatus.QUEUED)
+    model_filename = Column(String(255), nullable=False)
+    config_filename = Column(String(255), nullable=True)   # uploaded model config JSON
+    dataset_filename = Column(String(255), nullable=False)
+    alpha = Column(Float, nullable=False, default=0.1)
+    result_json = Column(Text, nullable=True)            # lamhat + metrics JSON
+    error_message = Column(Text, nullable=True)
+    created_at = Column(
+        DateTime, nullable=False, default=lambda: datetime.now(timezone.utc)
+    )
+    completed_at = Column(DateTime, nullable=True)
+    expires_at = Column(DateTime, nullable=False)        # TTL for cleanup
+
+    developer = relationship("Doctor", back_populates="calibration_jobs")

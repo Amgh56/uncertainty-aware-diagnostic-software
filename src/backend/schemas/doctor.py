@@ -25,6 +25,14 @@ class DoctorResponse(BaseModel):
     id: int
     email: str
     full_name: str
+    role: str = "clinician"
 
     class Config:
         from_attributes = True
+
+
+class DeveloperRegisterRequest(BaseModel):
+    """Register a new developer/researcher account."""
+    email: str = Field(..., examples=["researcher@uni.ac.uk"])
+    password: str = Field(..., min_length=6, examples=["securepass123"])
+    full_name: str = Field(..., examples=["Dr. Alice Researcher"])
