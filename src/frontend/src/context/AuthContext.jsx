@@ -76,10 +76,14 @@ export function AuthProvider({ children }) {
     return data;
   }, []);
 
-  const register = useCallback(async (email, password, fullName) => {
+  const register = useCallback(async (email, password, fullName, role = "clinician") => {
+    const endpoint = role === "developer"
+      ? `${API_URL}/developer/register`
+      : `${API_URL}/auth/register`;
+
     let res;
     try {
-      res = await fetch(`${API_URL}/auth/register`, {
+      res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password, full_name: fullName }),
@@ -93,6 +97,7 @@ export function AuthProvider({ children }) {
     const data = await res.json();
     localStorage.setItem("token", data.access_token);
     setToken(data.access_token);
+    return data;
   }, []);
 
   const logout = useCallback(() => {

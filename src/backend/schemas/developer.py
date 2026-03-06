@@ -3,26 +3,25 @@ from typing import Optional
 
 from pydantic import BaseModel, Field
 
+from enums import JobStatus
+
 
 class JobCreateResponse(BaseModel):
-    """Returned immediately after a calibration job is created."""
     id: str
-    status: str
+    status: JobStatus
     model_filename: str
     config_filename: Optional[str] = None
     dataset_filename: str
     alpha: float
     created_at: datetime
-    expires_at: datetime
 
     class Config:
         from_attributes = True
 
 
 class JobStatusResponse(BaseModel):
-    """Full status for a single calibration job."""
     id: str
-    status: str = Field(..., examples=["queued"])
+    status: JobStatus = Field(..., examples=["queued"])
     model_filename: str
     config_filename: Optional[str] = None
     dataset_filename: str
@@ -31,12 +30,10 @@ class JobStatusResponse(BaseModel):
     error_message: Optional[str] = None
     created_at: datetime
     completed_at: Optional[datetime] = None
-    expires_at: datetime
 
     class Config:
         from_attributes = True
 
 
 class JobListResponse(BaseModel):
-    """List of calibration jobs for the authenticated developer."""
     jobs: list[JobStatusResponse]

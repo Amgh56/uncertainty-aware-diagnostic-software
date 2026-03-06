@@ -1,7 +1,7 @@
 import { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { API_URL } from "../api/diagnosticApi";
+import { createCalibrationJob } from "../api/developerApi";
 import UploadCard from "./developer/UploadCard";
 import JobsTable from "./developer/JobsTable";
 
@@ -36,25 +36,7 @@ export default function DeveloperDashboard() {
     setSubmitSuccess(null);
 
     try {
-      const form = new FormData();
-      form.append("model_file", modelFile);
-      if (configFile) form.append("config_file", configFile);
-      form.append("dataset_file", datasetFile);
-      form.append("alpha", alphaNum);
-
-      const res = await fetch(`${API_URL}/developer/jobs?alpha=${alphaNum}`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-        body: form,
-      });
-
-      if (!res.ok) {
-        let detail = "Failed to create calibration job.";
-        try { detail = (await res.json()).detail ?? detail; } catch {}
-        throw new Error(detail);
-      }
-
-      const job = await res.json();
+      const job = await createCalibrationJob(modelFile, datasetFile, configFile, alphaNum, token);
       setSubmitSuccess(`Job ${job.id.slice(0, 8)} queued successfully.`);
       setModelFile(null);
       setConfigFile(null);

@@ -120,6 +120,42 @@
   font-weight: 500;
 }
 
+/* ── Role toggle (Register page) ── */
+.auth-role-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.auth-role-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1.5px solid var(--line);
+  background: var(--surface-muted);
+  color: var(--text-soft);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: "DM Sans", sans-serif;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+
+.auth-role-btn:hover:not(.auth-role-btn--active) {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+}
+
+.auth-role-btn--active {
+  border-color: #2563eb;
+  background: #eff6ff;
+  color: #2563eb;
+}
+
 .auth-footer {
   margin: 24px 0 0;
   font-size: 13px;

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { API_URL } from "../../api/diagnosticApi";
+import { listJobs, downloadJobResult, deleteJob } from "../../api/developerApi";
 
 const POLL_INTERVAL_MS = 5000;
 
@@ -42,11 +42,7 @@ export default function JobsTable({ token, onNewJob }) {
 
   async function fetchJobs() {
     try {
-      const res = await fetch(`${API_URL}/developer/jobs`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) return;
-      const data = await res.json();
+      const data = await listJobs(token);
       setJobs(data.jobs ?? []);
       setLoadError(null);
     } catch {
@@ -68,29 +64,27 @@ export default function JobsTable({ token, onNewJob }) {
   }, [jobs, onNewJob]);
 
   async function handleDownload(jobId) {
-    const res = await fetch(`${API_URL}/developer/jobs/${jobId}/result`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!res.ok) {
+    try {
+      const blob = await downloadJobResult(jobId, token);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `lamhat_${jobId.slice(0, 8)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
       alert("Result not available yet.");
-      return;
     }
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `lamhat_${jobId.slice(0, 8)}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
   }
 
   async function handleDelete(jobId) {
     if (!window.confirm("Delete this job and all uploaded files?")) return;
-    await fetch(`${API_URL}/developer/jobs/${jobId}`, {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    setJobs((prev) => prev.filter((j) => j.id !== jobId));
+    try {
+      await deleteJob(jobId, token);
+      setJobs((prev) => prev.filter((j) => j.id !== jobId));
+    } catch {
+      alert("Failed to delete job.");
+    }
   }
 
   if (loadError) {
