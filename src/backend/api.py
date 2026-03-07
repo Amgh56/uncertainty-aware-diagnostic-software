@@ -20,6 +20,7 @@ from services.ml_service import ml_state
 from routes.auth_routes import router as auth_router
 from routes.patient_routes import router as patient_router
 from routes.prediction_routes import router as prediction_router
+from routes.developer_routes import router as developer_router
 
 
 tags_metadata = [
@@ -36,6 +37,15 @@ tags_metadata = [
         "name": "Predictions",
         "description": "Upload chest X-ray images for ML inference, view prediction history and details. "
         "Uses conformal prediction for uncertainty-aware multi-label classification of 5 diseases.",
+    },
+    {
+        "name": "Developer",
+        "description": (
+            "Developer / Researcher mode. Upload a pretrained CheXpert-compatible model (.pth) "
+            "and a labelled calibration dataset (.zip) to run the conformal calibration pipeline "
+            "in the background. Download a `lamhat.json` with the calibrated threshold and metrics. "
+            "Requires a **developer** role account (`POST /developer/register`)."
+        ),
     },
     {
         "name": "Health",
@@ -73,6 +83,7 @@ app.add_middleware(
 app.include_router(auth_router)
 app.include_router(patient_router)
 app.include_router(prediction_router)
+app.include_router(developer_router)
 
 
 @app.on_event("startup")

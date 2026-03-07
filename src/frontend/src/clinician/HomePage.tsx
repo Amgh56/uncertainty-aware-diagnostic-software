@@ -1,23 +1,23 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { getPatients } from "../api/diagnosticApi";
+import { getPatients, PatientWithStats } from "./api/clinicianApi";
 
 const PAGE_SIZE = 5;
 
 export default function HomePage() {
   const { token, doctor, logout } = useAuth();
   const navigate = useNavigate();
-  const [patients, setPatients] = useState([]);
+  const [patients, setPatients] = useState<PatientWithStats[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(0);
 
   useEffect(() => {
-    getPatients(token)
+    getPatients(token!)
       .then((data) => setPatients(data.patients))
-      .catch((err) => setError(err.message))
+      .catch((err: Error) => setError(err.message))
       .finally(() => setLoading(false));
   }, [token]);
 

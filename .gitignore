@@ -9,4 +9,4 @@ src/frontend/dist
 *.env
 src/backend/app.db
 src/backend/uploads/
-src/backend/developers_uploads/
+src/backend/developer_uploads/

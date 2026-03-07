@@ -8,14 +8,13 @@ from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 
 from database import get_db
+from enums import UserRole
 from models import Doctor
 
 SECRET_KEY = os.getenv("JWT_SECRET_KEY", "change-me-in-production-use-a-real-secret")
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 480  # 8 hours
+ACCESS_TOKEN_EXPIRE_MINUTES = 480  
 
-# Use PBKDF2 for compatibility across Python/passlib environments.
-# (bcrypt backend can fail in some setups due passlib/bcrypt version mismatch.)
 pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 bearer_scheme = HTTPBearer()
 
@@ -55,3 +54,14 @@ def get_current_doctor(
             detail="Doctor not found",
         )
     return doctor
+
+
+def require_developer(
+    current_doctor: Doctor = Depends(get_current_doctor),
+) -> Doctor:
+    if current_doctor.role != UserRole.DEVELOPER.value:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Developer access required",
+        )
+    return current_doctor

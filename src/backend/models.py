@@ -14,6 +14,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import relationship
 
 from database import Base
+from enums import JobStatus, UserRole
 
 
 class Doctor(Base):
@@ -23,12 +24,19 @@ class Doctor(Base):
     email = Column(String(255), unique=True, nullable=False, index=True)
     hashed_password = Column(String(255), nullable=False)
     full_name = Column(String(255), nullable=False)
+    role = Column(
+        String(20),
+        nullable=False,
+        default=UserRole.CLINICIAN.value,
+        server_default=UserRole.CLINICIAN.value,
+    )
     created_at = Column(
         DateTime, nullable=False, default=lambda: datetime.now(timezone.utc)
     )
 
     patients = relationship("Patient", back_populates="doctor")
     predictions = relationship("Prediction", back_populates="doctor")
+    calibration_jobs = relationship("CalibrationJob", back_populates="developer")
 
 
 class Patient(Base):
@@ -76,3 +84,28 @@ class Prediction(Base):
 
     patient = relationship("Patient", back_populates="predictions")
     doctor = relationship("Doctor", back_populates="predictions")
+
+
+
+
+class CalibrationJob(Base):
+    __tablename__ = "calibration_jobs"
+    __table_args__ = (
+        Index("ix_calib_job_developer", "developer_id"),
+    )
+
+    id = Column(String(36), primary_key=True)          
+    developer_id = Column(Integer, ForeignKey("doctors.id"), nullable=False)
+    status = Column(String(20), nullable=False, default=JobStatus.QUEUED.value)
+    model_filename = Column(String(255), nullable=False)
+    config_filename = Column(String(255), nullable=True)  
+    dataset_filename = Column(String(255), nullable=False)
+    alpha = Column(Float, nullable=False, default=0.1)
+    result_json = Column(Text, nullable=True)           
+    error_message = Column(Text, nullable=True)
+    created_at = Column(
+        DateTime, nullable=False, default=lambda: datetime.now(timezone.utc)
+    )
+    completed_at = Column(DateTime, nullable=True)
+
+    developer = relationship("Doctor", back_populates="calibration_jobs")

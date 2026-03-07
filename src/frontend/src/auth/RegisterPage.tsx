@@ -6,20 +6,21 @@ export default function RegisterPage() {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState(null);
+  const [role, setRole] = useState("clinician");
+  const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const { register } = useAuth();
   const navigate = useNavigate();
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setSubmitting(true);
     try {
-      await register(email, password, fullName);
-      navigate("/home", { replace: true });
+      await register(email, password, fullName, role);
+      navigate(role === "developer" ? "/developer" : "/home", { replace: true });
     } catch (err) {
-      setError(err.message);
+      setError((err as Error).message);
     } finally {
       setSubmitting(false);
     }
@@ -38,22 +39,49 @@ export default function RegisterPage() {
         <p className="auth-subtitle">Register to use the Diagnostic System</p>
 
         <form onSubmit={handleSubmit} className="auth-form">
+          {/* Role toggle */}
+          <div className="auth-label">
+            <div className="auth-role-toggle">
+              <button
+                type="button"
+                className={`auth-role-btn ${role === "clinician" ? "auth-role-btn--active" : ""}`}
+                onClick={() => setRole("clinician")}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+                </svg>
+                Clinician
+              </button>
+              <button
+                type="button"
+                className={`auth-role-btn ${role === "developer" ? "auth-role-btn--active" : ""}`}
+                onClick={() => setRole("developer")}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="16 18 22 12 16 6" />
+                  <polyline points="8 6 2 12 8 18" />
+                </svg>
+                Developer
+              </button>
+            </div>
+          </div>
+
           <label className="auth-label">
             Full Name
             <input type="text" className="auth-input" value={fullName}
                    onChange={(e) => setFullName(e.target.value)} required
-                   placeholder="Dr. John Smith" />
+                   placeholder={role === "developer" ? "Dr. Alice Researcher" : "Dr. John Smith"} />
           </label>
           <label className="auth-label">
             Email
-            <input type="email" className="auth-input" value={email}
+            <input type="email" className="auth-input" value={email} placeholder="Abdullahmmmaghrabi@gmail.com"
                    onChange={(e) => setEmail(e.target.value)} required />
           </label>
           <label className="auth-label">
             Password
-            <input type="password" className="auth-input" value={password}
+            <input type="password" className="auth-input" value={password} 
                    onChange={(e) => setPassword(e.target.value)} required
-                   minLength={6} placeholder="At least 6 characters" />
+                   minLength={6} placeholder="123456@"/>
           </label>
 
           {error && <div className="auth-error">{error}</div>}

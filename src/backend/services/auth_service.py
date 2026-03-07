@@ -4,12 +4,17 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from auth import create_access_token, hash_password, verify_password
+from enums import UserRole
 from models import Doctor
 from schemas import TokenResponse
 
 
 def register_doctor(
-    email: str, password: str, full_name: str, db: Session
+    email: str,
+    password: str,
+    full_name: str,
+    db: Session,
+    role: UserRole = UserRole.CLINICIAN,
 ) -> TokenResponse:
     if len(password) < 6:
         raise HTTPException(
@@ -26,6 +31,7 @@ def register_doctor(
         email=email.lower().strip(),
         hashed_password=hash_password(password),
         full_name=full_name.strip(),
+        role=role.value,
     )
     db.add(doctor)
     db.commit()
