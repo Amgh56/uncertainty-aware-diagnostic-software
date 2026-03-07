@@ -1,16 +1,16 @@
 import { useEffect, useRef, useState } from "react";
-import { listJobs, downloadJobResult, deleteJob } from "../../api/developerApi";
+import { listJobs, downloadJobResult, deleteJob, CalibrationJob } from "./api/developerApi";
 
 const POLL_INTERVAL_MS = 5000;
 
-const STATUS_BADGE = {
+const STATUS_BADGE: Record<string, { label: string; color: string; bg: string }> = {
   queued:  { label: "Queued",  color: "#64748b", bg: "#f1f5f9" },
   running: { label: "Running", color: "#d97706", bg: "#fffbeb" },
   done:    { label: "Done",    color: "#059669", bg: "#f0fdf4" },
   failed:  { label: "Failed",  color: "#dc2626", bg: "#fef2f2" },
 };
 
-function StatusBadge({ status }) {
+function StatusBadge({ status }: { status: string }) {
   const s = STATUS_BADGE[status] ?? { label: status, color: "#64748b", bg: "#f1f5f9" };
   return (
     <span style={{
@@ -30,15 +30,15 @@ function StatusBadge({ status }) {
   );
 }
 
-/**
- * Props:
- *   token       — JWT
- *   onNewJob    — called when a terminal (done/failed) status is reached, useful to re-enable form
- */
-export default function JobsTable({ token, onNewJob }) {
-  const [jobs, setJobs] = useState([]);
-  const [loadError, setLoadError] = useState(null);
-  const pollRef = useRef(null);
+interface JobsTableProps {
+  token: string;
+  onNewJob?: () => void;
+}
+
+export default function JobsTable({ token, onNewJob }: JobsTableProps) {
+  const [jobs, setJobs] = useState<CalibrationJob[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   async function fetchJobs() {
     try {

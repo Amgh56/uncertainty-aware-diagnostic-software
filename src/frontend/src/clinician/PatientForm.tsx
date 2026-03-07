@@ -1,25 +1,29 @@
 import { useState } from "react";
-import { createPatient } from "../api/diagnosticApi";
+import { createPatient, Patient } from "./api/clinicianApi";
 import { useAuth } from "../context/AuthContext";
 
-export default function PatientForm({ onPatientReady }) {
+interface PatientFormProps {
+  onPatientReady: (patient: Patient) => void;
+}
+
+export default function PatientForm({ onPatientReady }: PatientFormProps) {
   const { token } = useAuth();
   const [mrn, setMrn] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setSubmitting(true);
 
     try {
-      const patient = await createPatient(mrn, firstName, lastName, token);
+      const patient = await createPatient(mrn, firstName, lastName, token!);
       onPatientReady(patient);
     } catch (err) {
-      setError(err.message);
+      setError((err as Error).message);
     } finally {
       setSubmitting(false);
     }

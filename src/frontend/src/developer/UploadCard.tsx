@@ -1,28 +1,26 @@
-/**
- * Reusable upload card for a single file input.
- *
- * Props:
- *   title       — card heading (e.g. "Model Weights")
- *   accept      — file input accept string (e.g. ".pth")
- *   hint        — short description shown below title
- *   file        — currently selected File (or null)
- *   onChange    — callback(File)
- *   disabled    — grey-out while job is running
- */
-export default function UploadCard({ title, accept, hint, file, onChange, disabled }) {
-  function handleChange(e) {
+interface UploadCardProps {
+  title: string;
+  accept: string;
+  hint: string;
+  file: File | null;
+  onChange: (file: File) => void;
+  disabled: boolean;
+}
+
+export default function UploadCard({ title, accept, hint, file, onChange, disabled }: UploadCardProps) {
+  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const selected = e.target.files?.[0];
     if (selected) onChange(selected);
   }
 
-  function handleDrop(e) {
+  function handleDrop(e: React.DragEvent) {
     e.preventDefault();
     if (disabled) return;
     const dropped = e.dataTransfer.files?.[0];
     if (dropped) onChange(dropped);
   }
 
-  function handleDragOver(e) {
+  function handleDragOver(e: React.DragEvent) {
     e.preventDefault();
   }
 

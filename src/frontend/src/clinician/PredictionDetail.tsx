@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { getPrediction } from "../api/diagnosticApi";
+import { getPrediction, PredictionResponse } from "./api/clinicianApi";
 
 const uncertaintyColors = {
   Low: { bg: "#dcfce7", text: "#166534", border: "#86efac" },
@@ -18,14 +18,14 @@ export default function PredictionDetail() {
   const { id } = useParams();
   const { token, logout } = useAuth();
   const navigate = useNavigate();
-  const [data, setData] = useState(null);
+  const [data, setData] = useState<PredictionResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    getPrediction(id, token)
+    getPrediction(id!, token!)
       .then((result) => setData(result))
-      .catch((err) => setError(err.message))
+      .catch((err: Error) => setError(err.message))
       .finally(() => setLoading(false));
   }, [id, token]);
 

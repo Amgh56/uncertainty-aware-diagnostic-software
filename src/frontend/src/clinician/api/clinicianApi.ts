@@ -1,8 +1,45 @@
-const DEFAULT_API_URL = "http://localhost:8000";
+import { API_URL } from "../../config";
 
-export const API_URL = import.meta.env.VITE_API_URL || DEFAULT_API_URL;
+export interface Patient {
+  id: number;
+  mrn: string;
+  first_name: string;
+  last_name: string;
+}
 
-async function parseError(response) {
+export interface Finding {
+  finding: string;
+  probability: number;
+  uncertainty: string;
+  in_prediction_set: boolean;
+}
+
+export interface PredictionResponse {
+  id: number;
+  patient: Patient;
+  image_path: string;
+  findings: Finding[];
+  top_finding: string;
+  top_probability: number;
+  prediction_set_size: number;
+  coverage: number;
+  alpha: number;
+  lamhat: number;
+  created_at: string;
+}
+
+export interface PatientWithStats extends Patient {
+  prediction_count: number;
+  last_prediction_at: string | null;
+  last_prediction_id: number | null;
+  last_top_finding: string | null;
+}
+
+export interface PatientListResponse {
+  patients: PatientWithStats[];
+}
+
+async function parseError(response: Response): Promise<string> {
   try {
     const payload = await response.json();
     return payload.detail || payload.message || "Request failed";
@@ -11,14 +48,14 @@ async function parseError(response) {
   }
 }
 
-function authHeaders(token) {
+function authHeaders(token: string): Record<string, string> {
   return { Authorization: `Bearer ${token}` };
 }
 
-export async function predictImage(file, patientId, token) {
+export async function predictImage(file: File, patientId: number, token: string): Promise<PredictionResponse> {
   const formData = new FormData();
   formData.append("file", file);
-  formData.append("patient_id", patientId);
+  formData.append("patient_id", String(patientId));
 
   const response = await fetch(`${API_URL}/predict`, {
     method: "POST",
@@ -45,7 +82,7 @@ export async function getHealth() {
   return response.json();
 }
 
-export async function createPatient(mrn, firstName, lastName, token) {
+export async function createPatient(mrn: string, firstName: string, lastName: string, token: string): Promise<Patient> {
   const response = await fetch(`${API_URL}/patients`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeaders(token) },
@@ -58,7 +95,7 @@ export async function createPatient(mrn, firstName, lastName, token) {
   return response.json();
 }
 
-export async function getPatients(token) {
+export async function getPatients(token: string): Promise<PatientListResponse> {
   const response = await fetch(`${API_URL}/patients`, {
     headers: authHeaders(token),
   });
@@ -69,7 +106,7 @@ export async function getPatients(token) {
   return response.json();
 }
 
-export async function getHistory(token) {
+export async function getHistory(token: string): Promise<PredictionResponse[]> {
   const response = await fetch(`${API_URL}/history`, {
     headers: authHeaders(token),
   });
@@ -80,7 +117,7 @@ export async function getHistory(token) {
   return response.json();
 }
 
-export async function getPrediction(predictionId, token) {
+export async function getPrediction(predictionId: string, token: string): Promise<PredictionResponse> {
   const response = await fetch(`${API_URL}/predictions/${predictionId}`, {
     headers: authHeaders(token),
   });

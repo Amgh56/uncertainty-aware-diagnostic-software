@@ -1,13 +1,13 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
-import ProtectedRoute from "./components/ProtectedRoute";
-import DeveloperRoute from "./components/DeveloperRoute";
-import LoginPage from "./components/LoginPage";
-import RegisterPage from "./components/RegisterPage";
-import HomePage from "./components/HomePage";
-import DiagnosticDashboard from "./components/DiagnosticDashboard";
-import PredictionDetail from "./components/PredictionDetail";
-import DeveloperDashboard from "./components/DeveloperDashboard";
+import ProtectedRoute from "./auth/ProtectedRoute";
+import DeveloperRoute from "./auth/DeveloperRoute";
+import LoginPage from "./auth/LoginPage";
+import RegisterPage from "./auth/RegisterPage";
+import HomePage from "./clinician/HomePage";
+import DiagnosticDashboard from "./clinician/DiagnosticDashboard";
+import PredictionDetail from "./clinician/PredictionDetail";
+import DeveloperDashboard from "./developer/DeveloperDashboard";
 import "./styles/diagnostic-dashboard.css";
 import "./styles/auth.css";
 

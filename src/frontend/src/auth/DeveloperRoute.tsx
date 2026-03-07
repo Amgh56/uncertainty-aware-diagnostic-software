@@ -9,7 +9,7 @@ import { useAuth } from "../context/AuthContext";
  * Non-developers are redirected to /home.
  * Unauthenticated users are redirected to /login.
  */
-export default function DeveloperRoute({ children }) {
+export default function DeveloperRoute({ children }: { children: React.ReactNode }) {
   const { token, doctor, loading } = useAuth();
 
   if (loading) {

@@ -7,12 +7,12 @@ export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState("clinician");
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const { register } = useAuth();
   const navigate = useNavigate();
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setSubmitting(true);
@@ -20,7 +20,7 @@ export default function RegisterPage() {
       await register(email, password, fullName, role);
       navigate(role === "developer" ? "/developer" : "/home", { replace: true });
     } catch (err) {
-      setError(err.message);
+      setError((err as Error).message);
     } finally {
       setSubmitting(false);
     }
@@ -74,14 +74,14 @@ export default function RegisterPage() {
           </label>
           <label className="auth-label">
             Email
-            <input type="email" className="auth-input" value={email}
+            <input type="email" className="auth-input" value={email} placeholder="Abdullahmmmaghrabi@gmail.com"
                    onChange={(e) => setEmail(e.target.value)} required />
           </label>
           <label className="auth-label">
             Password
-            <input type="password" className="auth-input" value={password}
+            <input type="password" className="auth-input" value={password} 
                    onChange={(e) => setPassword(e.target.value)} required
-                   minLength={6} placeholder="At least 6 characters" />
+                   minLength={6} placeholder="123456@"/>
           </label>
 
           {error && <div className="auth-error">{error}</div>}

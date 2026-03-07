@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { predictImage } from "../api/diagnosticApi";
+import { predictImage, Patient, PredictionResponse } from "./api/clinicianApi";
 import { useAuth } from "../context/AuthContext";
 import PatientForm from "./PatientForm";
 
@@ -19,18 +19,18 @@ export default function DiagnosticDashboard() {
   const { token, logout } = useAuth();
   const navigate = useNavigate();
 
-  const [patient, setPatient] = useState(null);
-  const [image, setImage] = useState(null);
-  const [imagePreview, setImagePreview] = useState(null);
-  const [results, setResults] = useState(null);
+  const [patient, setPatient] = useState<Patient | null>(null);
+  const [image, setImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [results, setResults] = useState<PredictionResponse | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [zoom, setZoom] = useState(100);
 
-  const fileInputRef = useRef(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFile = useCallback((file) => {
+  const handleFile = useCallback((file: File | undefined) => {
     if (!file) {
       return;
     }
@@ -45,12 +45,12 @@ export default function DiagnosticDashboard() {
     setResults(null);
 
     const reader = new FileReader();
-    reader.onload = (event) => setImagePreview(event.target?.result || null);
+    reader.onload = (event) => setImagePreview((event.target?.result as string) || null);
     reader.readAsDataURL(file);
   }, []);
 
   const handleDrop = useCallback(
-    (event) => {
+    (event: React.DragEvent) => {
       event.preventDefault();
       setDragOver(false);
       const file = event.dataTransfer.files?.[0];
@@ -59,7 +59,7 @@ export default function DiagnosticDashboard() {
     [handleFile]
   );
 
-  const handleDragOver = (event) => {
+  const handleDragOver = (event: React.DragEvent) => {
     event.preventDefault();
     setDragOver(true);
   };
@@ -77,10 +77,10 @@ export default function DiagnosticDashboard() {
     setError(null);
 
     try {
-      const data = await predictImage(image, patient.id, token);
+      const data = await predictImage(image, patient.id, token!);
       setResults(data);
     } catch (requestError) {
-      setError(requestError.message || "Failed to connect to the server");
+      setError((requestError as Error).message || "Failed to connect to the server");
     } finally {
       setLoading(false);
     }

@@ -1,27 +1,27 @@
 import { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { createCalibrationJob } from "../api/developerApi";
-import UploadCard from "./developer/UploadCard";
-import JobsTable from "./developer/JobsTable";
+import { createCalibrationJob, CalibrationJob } from "./api/developerApi";
+import UploadCard from "./UploadCard";
+import JobsTable from "./JobsTable";
 
 export default function DeveloperDashboard() {
   const { token, doctor, logout } = useAuth();
   const navigate = useNavigate();
 
-  const [modelFile, setModelFile] = useState(null);
-  const [configFile, setConfigFile] = useState(null);
-  const [datasetFile, setDatasetFile] = useState(null);
+  const [modelFile, setModelFile] = useState<File | null>(null);
+  const [configFile, setConfigFile] = useState<File | null>(null);
+  const [datasetFile, setDatasetFile] = useState<File | null>(null);
   const [alpha, setAlpha] = useState("0.1");
   const [submitting, setSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState(null);
-  const [submitSuccess, setSubmitSuccess] = useState(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
   // Incremented to force JobsTable to refresh after a new job is created
   const [jobsKey, setJobsKey] = useState(0);
 
   const canSubmit = modelFile && datasetFile && !submitting; // config is optional
 
-  async function handleSubmit(e) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!canSubmit) return;
 
@@ -36,14 +36,14 @@ export default function DeveloperDashboard() {
     setSubmitSuccess(null);
 
     try {
-      const job = await createCalibrationJob(modelFile, datasetFile, configFile, alphaNum, token);
+      const job = await createCalibrationJob(modelFile, datasetFile, configFile, alphaNum, token!);
       setSubmitSuccess(`Job ${job.id.slice(0, 8)} queued successfully.`);
       setModelFile(null);
       setConfigFile(null);
       setDatasetFile(null);
       setJobsKey((k) => k + 1);
     } catch (err) {
-      setSubmitError(err.message);
+      setSubmitError((err as Error).message);
     } finally {
       setSubmitting(false);
     }
@@ -290,7 +290,7 @@ img002.jpg,0,1,1`}</pre>
         {/* ── Jobs history ── */}
         <div className="dev-jobs-section">
           <h3 className="dev-section-title" style={{ marginBottom: 12 }}>Calibration Jobs</h3>
-          <JobsTable key={jobsKey} token={token} onNewJob={handleJobsSettled} />
+          <JobsTable key={jobsKey} token={token!} onNewJob={handleJobsSettled} />
         </div>
       </main>
     </div>

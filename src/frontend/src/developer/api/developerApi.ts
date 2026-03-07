@@ -1,10 +1,23 @@
-import { API_URL } from "./diagnosticApi";
+import { API_URL } from "../../config";
 
-function authHeaders(token) {
-  return { Authorization: `Bearer ${token}` };
+export interface CalibrationJob {
+  id: string;
+  status: string;
+  model_filename: string;
+  config_filename: string | null;
+  dataset_filename: string;
+  alpha: number;
+  result_json: string | null;
+  error_message: string | null;
+  created_at: string;
+  completed_at: string | null;
 }
 
-async function parseError(response) {
+export interface JobListResponse {
+  jobs: CalibrationJob[];
+}
+
+async function parseError(response: Response): Promise<string> {
   try {
     const payload = await response.json();
     return payload.detail || payload.message || "Request failed";
@@ -13,7 +26,17 @@ async function parseError(response) {
   }
 }
 
-export async function createCalibrationJob(modelFile, datasetFile, configFile, alpha, token) {
+function authHeaders(token: string): Record<string, string> {
+  return { Authorization: `Bearer ${token}` };
+}
+
+export async function createCalibrationJob(
+  modelFile: File,
+  datasetFile: File,
+  configFile: File | null,
+  alpha: number,
+  token: string,
+): Promise<CalibrationJob> {
   const form = new FormData();
   form.append("model_file", modelFile);
   if (configFile) form.append("config_file", configFile);
@@ -33,7 +56,7 @@ export async function createCalibrationJob(modelFile, datasetFile, configFile, a
   return response.json();
 }
 
-export async function listJobs(token) {
+export async function listJobs(token: string): Promise<JobListResponse> {
   const response = await fetch(`${API_URL}/developer/jobs`, {
     headers: authHeaders(token),
   });
@@ -46,7 +69,7 @@ export async function listJobs(token) {
   return response.json();
 }
 
-export async function downloadJobResult(jobId, token) {
+export async function downloadJobResult(jobId: string, token: string): Promise<Blob> {
   const response = await fetch(`${API_URL}/developer/jobs/${jobId}/result`, {
     headers: authHeaders(token),
   });
@@ -59,7 +82,7 @@ export async function downloadJobResult(jobId, token) {
   return response.blob();
 }
 
-export async function deleteJob(jobId, token) {
+export async function deleteJob(jobId: string, token: string): Promise<void> {
   const response = await fetch(`${API_URL}/developer/jobs/${jobId}`, {
     method: "DELETE",
     headers: authHeaders(token),
