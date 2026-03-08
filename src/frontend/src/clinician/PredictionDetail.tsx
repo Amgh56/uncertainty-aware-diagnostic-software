@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { getPrediction, PredictionResponse } from "./api/clinicianApi";
+import ClinicianLayout from "./ClinicianLayout";
 
 const uncertaintyColors = {
   Low: { bg: "#dcfce7", text: "#166534", border: "#86efac" },
@@ -16,7 +17,7 @@ const statusColors = {
 
 export default function PredictionDetail() {
   const { id } = useParams();
-  const { token, logout } = useAuth();
+  const { token } = useAuth();
   const navigate = useNavigate();
   const [data, setData] = useState<PredictionResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -31,58 +32,37 @@ export default function PredictionDetail() {
 
   if (loading) {
     return (
-      <div className="dashboard-root">
-        <div className="empty-state" style={{ minHeight: "100vh" }}>
-          <div className="spinner-large" />
-          <p className="empty-title">Loading prediction...</p>
+      <ClinicianLayout title="Case Detail" subtitle="Loading the saved diagnostic case.">
+        <div className="panel clinician-feedback-panel">
+          <div className="empty-state">
+            <div className="spinner-large" />
+            <p className="empty-title">Loading prediction...</p>
+          </div>
         </div>
-      </div>
+      </ClinicianLayout>
     );
   }
 
   if (error) {
     return (
-      <div className="dashboard-root">
-        <div className="empty-state" style={{ minHeight: "100vh" }}>
-          <p className="empty-title">Error: {error}</p>
-          <button className="nav-btn" onClick={() => navigate("/home")} style={{ marginTop: 16 }}>
-            Back to Home
-          </button>
+      <ClinicianLayout title="Case Detail" subtitle="We couldn't load this saved case.">
+        <div className="panel clinician-feedback-panel">
+          <div className="empty-state">
+            <p className="empty-title">Error: {error}</p>
+            <button className="home-page-btn" onClick={() => navigate("/home")} style={{ marginTop: 16 }}>
+              Back to Dashboard
+            </button>
+          </div>
         </div>
-      </div>
+      </ClinicianLayout>
     );
   }
 
   return (
-    <div className="dashboard-root">
-      <header className="dash-header">
-        <div className="dash-header-inner">
-          <div className="dash-header-left">
-            <div className="dash-logo-icon">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
-              </svg>
-            </div>
-            <div>
-              <h1 className="dash-header-title">Prediction Detail</h1>
-              <p className="dash-header-subtitle">
-                {data.patient.first_name} {data.patient.last_name} (MRN: {data.patient.mrn})
-              </p>
-            </div>
-          </div>
-          <div className="dash-header-right">
-            <button className="nav-btn nav-icon-btn" onClick={() => navigate("/home")} title="Home">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
-                <polyline points="9 22 9 12 15 12 15 22" />
-              </svg>
-            </button>
-            <button className="nav-btn logout-btn" onClick={logout}>Logout</button>
-          </div>
-        </div>
-      </header>
-
-      <main className="dash-main">
+    <ClinicianLayout
+      title="Case Detail"
+      subtitle={`${data.patient.first_name} ${data.patient.last_name} (MRN: ${data.patient.mrn})`}
+    >
         <div className="dash-grid">
           <section className="panel">
             <div className="panel-header">
@@ -236,7 +216,6 @@ export default function PredictionDetail() {
             </div>
           </section>
         </div>
-      </main>
-    </div>
+    </ClinicianLayout>
   );
 }

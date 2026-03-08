@@ -1,8 +1,8 @@
 import { useCallback, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { predictImage, Patient, PredictionResponse } from "./api/clinicianApi";
 import { useAuth } from "../context/AuthContext";
 import PatientForm from "./PatientForm";
+import ClinicianLayout from "./ClinicianLayout";
 
 const uncertaintyColors = {
   Low: { bg: "#dcfce7", text: "#166534", border: "#86efac" },
@@ -16,8 +16,7 @@ const statusColors = {
 };
 
 export default function DiagnosticDashboard() {
-  const { token, logout } = useAuth();
-  const navigate = useNavigate();
+  const { token } = useAuth();
 
   const [patient, setPatient] = useState<Patient | null>(null);
   const [image, setImage] = useState<File | null>(null);
@@ -96,33 +95,10 @@ export default function DiagnosticDashboard() {
   };
 
   return (
-    <div className="dashboard-root">
-      <header className="dash-header">
-        <div className="dash-header-inner">
-          <div className="dash-header-left">
-            <div className="dash-logo-icon">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
-              </svg>
-            </div>
-            <div>
-              <h1 className="dash-header-title">Uncertainty-Aware Diagnostic System</h1>
-              <p className="dash-header-subtitle">Conformal prediction for chest X-ray analysis</p>
-            </div>
-          </div>
-          <div className="dash-header-right">
-            <button className="nav-btn nav-icon-btn" onClick={() => navigate("/home")} title="Home">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
-                <polyline points="9 22 9 12 15 12 15 22" />
-              </svg>
-            </button>
-            <button className="nav-btn logout-btn" onClick={logout}>Logout</button>
-          </div>
-        </div>
-      </header>
-
-      <main className="dash-main">
+    <ClinicianLayout
+      title="New Patient"
+      subtitle="Create a patient record and upload a new chest X-ray to start a diagnostic case."
+    >
         <div className="dash-grid">
           <section className="panel">
             <div className="panel-header">
@@ -420,7 +396,6 @@ export default function DiagnosticDashboard() {
             </button>
           </div>
         )}
-      </main>
-    </div>
+    </ClinicianLayout>
   );
 }

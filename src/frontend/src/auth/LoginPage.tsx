@@ -1,7 +1,9 @@
 import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { fetchCurrentUser } from "./api/authApi";
+import AuthLayout from "./AuthLayout";
+import PasswordInput from "./PasswordInput";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -27,28 +29,37 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="auth-page">
-      <div className="auth-card">
-        <div className="auth-logo">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#2563eb"
-               strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
-          </svg>
-        </div>
-        <h1 className="auth-title">Welcome Back</h1>
-        <p className="auth-subtitle">Sign in to the Diagnostic System</p>
-
+    <AuthLayout
+      title="Welcome Back"
+      subtitle="Uncertainty-aware diagnostics you can trust"
+      footerText="Don't have an account?"
+      footerLinkLabel="Register"
+      footerLinkTo="/register"
+    >
+      <section className="auth-panel" aria-label="Sign in form">
         <form onSubmit={handleSubmit} className="auth-form">
-          <label className="auth-label">
-            Email
-            <input type="email" className="auth-input" value={email}
-                   onChange={(e) => setEmail(e.target.value)} required />
-          </label>
-          <label className="auth-label">
-            Password
-            <input type="password" className="auth-input" value={password}
-                   onChange={(e) => setPassword(e.target.value)} required />
-          </label>
+          <div className="auth-field">
+            <label className="auth-label-text" htmlFor="login-email">Email</label>
+            <input
+              id="login-email"
+              type="email"
+              className="auth-input-control"
+              value={email}
+              placeholder="doctor@example.com"
+              onChange={(e) => setEmail(e.target.value)}
+              autoComplete="email"
+              required
+            />
+          </div>
+          <PasswordInput
+            id="login-password"
+            label="Password"
+            value={password}
+            placeholder="Enter your password"
+            onChange={(e) => setPassword(e.target.value)}
+            autoComplete="current-password"
+            required
+          />
 
           {error && <div className="auth-error">{error}</div>}
 
@@ -56,11 +67,7 @@ export default function LoginPage() {
             {submitting ? <><span className="spinner" /> Signing in...</> : "Sign In"}
           </button>
         </form>
-
-        <p className="auth-footer">
-          Don&apos;t have an account? <Link to="/register" className="auth-link">Register</Link>
-        </p>
-      </div>
-    </div>
+      </section>
+    </AuthLayout>
   );
 }

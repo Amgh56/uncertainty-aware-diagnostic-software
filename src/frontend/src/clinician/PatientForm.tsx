@@ -40,22 +40,40 @@ export default function PatientForm({ onPatientReady }: PatientFormProps) {
       <h3 className="panel-title">Patient Information</h3>
       <p className="panel-subtitle">Enter patient details before running prediction</p>
       <form onSubmit={handleSubmit} className="patient-form">
-        <label className="auth-label">
-          Medical Record Number (MRN)
-          <input className="auth-input" value={mrn}
-                 onChange={(e) => setMrn(e.target.value)} required placeholder="e.g. MRN-123456" />
-        </label>
+        <div className="auth-field">
+          <label className="auth-label-text" htmlFor="patient-mrn">Medical Record Number (MRN)</label>
+          <input
+            id="patient-mrn"
+            className="auth-input-control"
+            value={mrn}
+            onChange={(e) => setMrn(e.target.value)}
+            required
+            placeholder="e.g. MRN-123456"
+          />
+        </div>
         <div className="patient-form-row">
-          <label className="auth-label">
-            First Name
-            <input className="auth-input" value={firstName}
-                   onChange={(e) => setFirstName(e.target.value)} required />
-          </label>
-          <label className="auth-label">
-            Last Name
-            <input className="auth-input" value={lastName}
-                   onChange={(e) => setLastName(e.target.value)} required />
-          </label>
+          <div className="auth-field">
+            <label className="auth-label-text" htmlFor="patient-first-name">First Name</label>
+            <input
+              id="patient-first-name"
+              className="auth-input-control"
+              value={firstName}
+              onChange={(e) => setFirstName(e.target.value)}
+              required
+              placeholder="First name"
+            />
+          </div>
+          <div className="auth-field">
+            <label className="auth-label-text" htmlFor="patient-last-name">Last Name</label>
+            <input
+              id="patient-last-name"
+              className="auth-input-control"
+              value={lastName}
+              onChange={(e) => setLastName(e.target.value)}
+              required
+              placeholder="Last name"
+            />
+          </div>
         </div>
         {error && <div className="auth-error">{error}</div>}
         <button type="submit" className="auth-submit-btn" disabled={submitting}>
