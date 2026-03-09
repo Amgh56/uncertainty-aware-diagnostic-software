@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
-interface ClinicianLayoutProps {
+interface DeveloperLayoutProps {
   title: string;
   subtitle: string;
   children: ReactNode;
@@ -10,13 +10,7 @@ interface ClinicianLayoutProps {
 
 function PulseIcon() {
   return (
-    <svg
-      className="clinician-brand-icon-svg"
-      viewBox="0 0 24 24"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      aria-hidden="true"
-    >
+    <svg className="developer-brand-icon-svg" viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <path
         d="M22 12H18L15 21L9 3L6 12H2"
         stroke="currentColor"
@@ -28,35 +22,52 @@ function PulseIcon() {
   );
 }
 
-function DashboardIcon() {
+function GuideIcon() {
   return (
-    <svg className="clinician-nav-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <rect x="3" y="3" width="7" height="7" rx="2" stroke="currentColor" strokeWidth="1.8" />
-      <rect x="14" y="3" width="7" height="7" rx="2" stroke="currentColor" strokeWidth="1.8" />
-      <rect x="3" y="14" width="7" height="7" rx="2" stroke="currentColor" strokeWidth="1.8" />
-      <rect x="14" y="14" width="7" height="7" rx="2" stroke="currentColor" strokeWidth="1.8" />
-    </svg>
-  );
-}
-
-function PatientIcon() {
-  return (
-    <svg className="clinician-nav-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <svg className="developer-nav-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <path
-        d="M20 21V19C20 16.7909 18.2091 15 16 15H8C5.79086 15 4 16.7909 4 19V21"
+        d="M4 5.5C4 4.67157 4.67157 4 5.5 4H11V20H5.5C4.67157 20 4 19.3284 4 18.5V5.5Z"
         stroke="currentColor"
         strokeWidth="1.8"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="1.8" />
+      <path
+        d="M20 5.5C20 4.67157 19.3284 4 18.5 4H13V20H18.5C19.3284 20 20 19.3284 20 18.5V5.5Z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path d="M8 8H8.01M8 11H8.01M8 14H8.01" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function CalibrateIcon() {
+  return (
+    <svg className="developer-nav-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M12 3L19 7V17L12 21L5 17V7L12 3Z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M9 12L11 14L15 10"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }
 
 function LogoutIcon() {
   return (
-    <svg className="clinician-nav-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <svg className="developer-nav-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <path
         d="M9 21H5C3.89543 21 3 20.1046 3 19V5C3 3.89543 3.89543 3 5 3H9"
         stroke="currentColor"
@@ -92,7 +103,7 @@ function ChevronIcon({ direction }: { direction: "left" | "right" | "down" | "up
         : "M6 9L12 15L18 9";
 
   return (
-    <svg className="clinician-chevron-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <svg className="developer-chevron-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <path d={d} stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
@@ -107,19 +118,18 @@ function getInitials(fullName: string) {
     .join("");
 }
 
-export default function ClinicianLayout({ title, subtitle, children }: ClinicianLayoutProps) {
+export default function DeveloperLayout({ title, subtitle, children }: DeveloperLayoutProps) {
   const { pathname } = useLocation();
   const { doctor, logout } = useAuth();
-  const [collapsed, setCollapsed] = useState(() => localStorage.getItem("clinician-sidebar-collapsed") === "1");
+  const [collapsed, setCollapsed] = useState(() => localStorage.getItem("developer-sidebar-collapsed") === "1");
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement | null>(null);
-
-  const dashboardActive = pathname === "/home" || pathname.startsWith("/predictions/");
-  const newPatientActive = pathname === "/dashboard";
-  const doctorInitials = doctor ? getInitials(doctor.full_name) : "DR";
+  const guideActive = pathname === "/developer/how-to-calibrate" || pathname === "/developer";
+  const calibrateActive = pathname === "/developer/calibrate";
+  const developerInitials = doctor ? getInitials(doctor.full_name) : "DR";
 
   useEffect(() => {
-    localStorage.setItem("clinician-sidebar-collapsed", collapsed ? "1" : "0");
+    localStorage.setItem("developer-sidebar-collapsed", collapsed ? "1" : "0");
   }, [collapsed]);
 
   useEffect(() => {
@@ -138,21 +148,21 @@ export default function ClinicianLayout({ title, subtitle, children }: Clinician
   }, [pathname, collapsed]);
 
   return (
-    <div className={`clinician-layout${collapsed ? " clinician-layout--collapsed" : ""}`}>
-      <aside className="clinician-sidebar">
-        <div className="clinician-sidebar-top">
-          <div className="clinician-brand">
-            <div className="clinician-brand-icon">
+    <div className={`developer-layout${collapsed ? " developer-layout--collapsed" : ""}`}>
+      <aside className="developer-sidebar">
+        <div className="developer-sidebar-top">
+          <div className="developer-brand">
+            <div className="developer-brand-icon">
               <PulseIcon />
             </div>
-            <div className="clinician-brand-copy">
-              <span className="clinician-brand-title">SafeDx</span>
+            <div className="developer-brand-copy">
+              <span className="developer-brand-title">SafeDx</span>
             </div>
           </div>
 
           <button
             type="button"
-            className="clinician-sidebar-toggle"
+            className="developer-sidebar-toggle"
             onClick={() => setCollapsed((value) => !value)}
             aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
             aria-pressed={collapsed}
@@ -161,56 +171,56 @@ export default function ClinicianLayout({ title, subtitle, children }: Clinician
           </button>
         </div>
 
-        <div className="clinician-sidebar-divider" aria-hidden="true" />
+        <div className="developer-sidebar-divider" aria-hidden="true" />
 
-        <div className="clinician-nav-section">
-          <p className="clinician-nav-heading">Explore</p>
-          <nav className="clinician-nav" aria-label="Clinician navigation">
+        <div className="developer-nav-section">
+          <p className="developer-nav-heading">Workspace</p>
+          <nav className="developer-nav" aria-label="Developer navigation">
             <Link
-              to="/home"
-              className={`clinician-nav-item${dashboardActive ? " clinician-nav-item--active" : ""}`}
-              aria-current={dashboardActive ? "page" : undefined}
-              title={collapsed ? "Dashboard" : undefined}
+              to="/developer/how-to-calibrate"
+              className={`developer-nav-item${guideActive ? " developer-nav-item--active" : ""}`}
+              aria-current={guideActive ? "page" : undefined}
+              title={collapsed ? "How to Calibrate Your Model" : undefined}
             >
-              <DashboardIcon />
-              <span>Dashboard</span>
+              <GuideIcon />
+              <span>How to Calibrate Your Model</span>
             </Link>
             <Link
-              to="/dashboard"
-              className={`clinician-nav-item${newPatientActive ? " clinician-nav-item--active" : ""}`}
-              aria-current={newPatientActive ? "page" : undefined}
-              title={collapsed ? "New Patient" : undefined}
+              to="/developer/calibrate"
+              className={`developer-nav-item${calibrateActive ? " developer-nav-item--active" : ""}`}
+              aria-current={calibrateActive ? "page" : undefined}
+              title={collapsed ? "Calibrate Your Model" : undefined}
             >
-              <PatientIcon />
-              <span>New Patient</span>
+              <CalibrateIcon />
+              <span>Calibrate Your Model</span>
             </Link>
           </nav>
         </div>
 
-        <div className="clinician-sidebar-footer">
+        <div className="developer-sidebar-footer">
           {doctor && (
-            <div className="clinician-user-menu-wrap" ref={profileMenuRef}>
+            <div className="developer-user-menu-wrap" ref={profileMenuRef}>
               <button
                 type="button"
-                className={`clinician-user-card${profileMenuOpen ? " clinician-user-card--active" : ""}`}
+                className={`developer-user-card${profileMenuOpen ? " developer-user-card--active" : ""}`}
                 title={collapsed ? doctor.full_name : undefined}
                 aria-label={collapsed ? doctor.full_name : "Open profile menu"}
                 aria-expanded={profileMenuOpen}
                 aria-haspopup="menu"
                 onClick={() => setProfileMenuOpen((value) => !value)}
               >
-                <div className="clinician-user-avatar">{doctorInitials}</div>
-                <span className="clinician-user-name">{doctor.full_name}</span>
-                <span className="clinician-user-chevron">
+                <div className="developer-user-avatar">{developerInitials}</div>
+                <span className="developer-user-name">{doctor.full_name}</span>
+                <span className="developer-user-chevron">
                   <ChevronIcon direction={profileMenuOpen ? "up" : "down"} />
                 </span>
               </button>
 
               {profileMenuOpen && (
-                <div className="clinician-user-menu" role="menu">
+                <div className="developer-user-menu" role="menu">
                   <button
                     type="button"
-                    className="clinician-user-menu-item"
+                    className="developer-user-menu-item"
                     role="menuitem"
                     onClick={logout}
                   >
@@ -224,12 +234,12 @@ export default function ClinicianLayout({ title, subtitle, children }: Clinician
         </div>
       </aside>
 
-      <div className="clinician-content-shell">
-        <main className="clinician-main">
-          <header className="clinician-page-header">
+      <div className="developer-content-shell">
+        <main className="developer-main">
+          <header className="developer-page-header">
             <div>
-              <h1 className="clinician-page-title">{title}</h1>
-              <p className="clinician-page-subtitle">{subtitle}</p>
+              <h1 className="developer-page-title">{title}</h1>
+              <p className="developer-page-subtitle">{subtitle}</p>
             </div>
           </header>
 

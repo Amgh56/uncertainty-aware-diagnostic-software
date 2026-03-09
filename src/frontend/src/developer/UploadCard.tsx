@@ -1,3 +1,5 @@
+import { useRef } from "react";
+
 interface UploadCardProps {
   title: string;
   accept: string;
@@ -8,6 +10,8 @@ interface UploadCardProps {
 }
 
 export default function UploadCard({ title, accept, hint, file, onChange, disabled }: UploadCardProps) {
+  const inputRef = useRef<HTMLInputElement>(null);
+
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const selected = e.target.files?.[0];
     if (selected) onChange(selected);
@@ -24,15 +28,36 @@ export default function UploadCard({ title, accept, hint, file, onChange, disabl
     e.preventDefault();
   }
 
-  const inputId = `upload-${title.replace(/\s+/g, "-").toLowerCase()}`;
+  function openPicker() {
+    if (disabled) return;
+    inputRef.current?.click();
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
+    if (disabled) return;
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      openPicker();
+    }
+  }
+
+  const inputId = `upload-${title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "")}`;
 
   return (
     <div className="dev-upload-card" onDrop={handleDrop} onDragOver={handleDragOver}>
       <p className="dev-upload-card-title">{title}</p>
       <p className="dev-upload-card-hint">{hint}</p>
 
-      <label
-        htmlFor={inputId}
+      <div
+        role="button"
+        tabIndex={disabled ? -1 : 0}
+        aria-disabled={disabled}
+        aria-controls={inputId}
+        onClick={openPicker}
+        onKeyDown={handleKeyDown}
         className={`dev-upload-drop-zone${file ? " dev-upload-drop-zone--selected" : ""}${disabled ? " dev-upload-drop-zone--disabled" : ""}`}
       >
         {file ? (
@@ -54,15 +79,26 @@ export default function UploadCard({ title, accept, hint, file, onChange, disabl
             <span className="dev-upload-accept">{accept} file</span>
           </>
         )}
-      </label>
+      </div>
 
       <input
+        ref={inputRef}
         id={inputId}
         type="file"
         accept={accept}
         onChange={handleChange}
         disabled={disabled}
-        style={{ display: "none" }}
+        style={{
+          position: "absolute",
+          width: 1,
+          height: 1,
+          padding: 0,
+          margin: -1,
+          overflow: "hidden",
+          clip: "rect(0, 0, 0, 0)",
+          whiteSpace: "nowrap",
+          border: 0,
+        }}
       />
     </div>
   );

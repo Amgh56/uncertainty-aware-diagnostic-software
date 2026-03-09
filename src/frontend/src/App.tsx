@@ -8,6 +8,7 @@ import HomePage from "./clinician/HomePage";
 import DiagnosticDashboard from "./clinician/DiagnosticDashboard";
 import PredictionDetail from "./clinician/PredictionDetail";
 import DeveloperDashboard from "./developer/DeveloperDashboard";
+import DeveloperHowToPage from "./developer/DeveloperHowToPage";
 import "./styles/diagnostic-dashboard.css";
 import "./styles/auth.css";
 
@@ -28,6 +29,12 @@ export default function App() {
             <ProtectedRoute><PredictionDetail /></ProtectedRoute>
           } />
           <Route path="/developer" element={
+            <DeveloperRoute><Navigate to="/developer/how-to-calibrate" replace /></DeveloperRoute>
+          } />
+          <Route path="/developer/how-to-calibrate" element={
+            <DeveloperRoute><DeveloperHowToPage /></DeveloperRoute>
+          } />
+          <Route path="/developer/calibrate" element={
             <DeveloperRoute><DeveloperDashboard /></DeveloperRoute>
           } />
           <Route path="*" element={<Navigate to="/home" replace />} />
