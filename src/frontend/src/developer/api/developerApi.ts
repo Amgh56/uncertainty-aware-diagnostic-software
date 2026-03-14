@@ -93,3 +93,63 @@ export async function deleteJob(jobId: string, token: string): Promise<void> {
     throw new Error(message);
   }
 }
+
+/* ── Validation ─────────────────────────────────────────── */
+
+export interface SweepPoint {
+  alpha: number;
+  lamhat: number;
+  empirical_fnr: number;
+  avg_set_size: number;
+}
+
+export interface ValidationData {
+  sweep: SweepPoint[];
+  job_alpha: number;
+  job_lamhat: number;
+  job_fnr: number;
+  job_avg_set_size: number;
+  n_samples: number;
+  n_positive: number;
+  label_names: string[];
+  verdict: "good" | "review" | "unreliable";
+  violations: number;
+  monotonic_breaks: number;
+}
+
+export async function fetchValidationData(
+  jobId: string,
+  token: string,
+): Promise<ValidationData> {
+  const response = await fetch(`${API_URL}/developer/jobs/${jobId}/validation`, {
+    headers: authHeaders(token),
+  });
+
+  if (!response.ok) {
+    const message = await parseError(response);
+    throw new Error(message);
+  }
+
+  return response.json();
+}
+
+export async function regenerateValidation(
+  jobId: string,
+  token: string,
+): Promise<ValidationData> {
+  const response = await fetch(`${API_URL}/developer/jobs/${jobId}/validation`, {
+    method: "POST",
+    headers: authHeaders(token),
+  });
+
+  if (!response.ok) {
+    const message = await parseError(response);
+    throw new Error(message);
+  }
+
+  return response.json();
+}
+
+export function getArtifactDownloadUrl(jobId: string, filename: string): string {
+  return `${API_URL}/developer/jobs/${jobId}/validation/download/${filename}`;
+}

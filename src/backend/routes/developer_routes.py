@@ -22,12 +22,16 @@ from schemas import (
     TokenResponse,
 )
 from services.auth_service import register_doctor
+from fastapi.responses import FileResponse
 from services.calibration_service import (
     create_job as svc_create_job,
     delete_job as svc_delete_job,
     get_job as svc_get_job,
     get_job_result as svc_get_job_result,
+    get_validation_artifact_path as svc_get_artifact,
+    get_validation_data as svc_get_validation,
     list_jobs as svc_list_jobs,
+    regenerate_validation_artifacts as svc_regenerate_validation,
     run_calibration_job,
 )
 
@@ -178,3 +182,62 @@ def delete_job(
     developer: Doctor = Depends(require_developer),
 ):
     svc_delete_job(job_id, developer, db)
+
+
+@router.get(
+    "/developer/jobs/{job_id}/validation",
+    summary="Get validation sweep data",
+    description="Returns FNR and avg set size across a range of alpha values for a completed calibration job.",
+    responses={
+        200: {"description": "Validation data returned"},
+        400: {"model": ErrorResponse, "description": "Job not complete"},
+        404: {"model": ErrorResponse, "description": "Artifacts not found — regenerate"},
+    },
+)
+def get_validation(
+    job_id: str,
+    db: Session = Depends(get_db),
+    developer: Doctor = Depends(require_developer),
+):
+    return svc_get_validation(job_id, developer, db)
+
+
+@router.post(
+    "/developer/jobs/{job_id}/validation",
+    summary="Regenerate validation artifacts",
+    description="Re-runs inference to create validation artifacts for older jobs that lack them.",
+    responses={
+        200: {"description": "Validation data generated and returned"},
+        400: {"model": ErrorResponse, "description": "Job not complete"},
+        404: {"model": ErrorResponse, "description": "Original files not found"},
+    },
+)
+def regenerate_validation(
+    job_id: str,
+    db: Session = Depends(get_db),
+    developer: Doctor = Depends(require_developer),
+):
+    return svc_regenerate_validation(job_id, developer, db)
+
+
+@router.get(
+    "/developer/jobs/{job_id}/validation/download/{filename}",
+    summary="Download a validation artifact",
+    description="Download cal_probs.npy, cal_labels.npy, cal_pos_mask.npy, or label_names.json.",
+    responses={
+        200: {"description": "File download"},
+        400: {"model": ErrorResponse, "description": "Invalid filename or job not complete"},
+        404: {"model": ErrorResponse, "description": "File not found"},
+    },
+)
+def download_artifact(
+    job_id: str,
+    filename: str,
+    db: Session = Depends(get_db),
+    developer: Doctor = Depends(require_developer),
+):
+    path = svc_get_artifact(job_id, filename, developer, db)
+    media = "application/octet-stream"
+    if filename.endswith(".json"):
+        media = "application/json"
+    return FileResponse(path=str(path), media_type=media, filename=f"{job_id[:8]}_{filename}")

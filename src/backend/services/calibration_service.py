@@ -446,6 +446,13 @@ def run_calibration_job(job_id: str) -> None:
             "calibrated_at": datetime.now(timezone.utc).isoformat(),
         }
 
+        # Save inference artifacts for later validation
+        np.save(str(result_dir / "cal_probs.npy"), probs)
+        np.save(str(result_dir / "cal_labels.npy"), labels)
+        np.save(str(result_dir / "cal_pos_mask.npy"), pos_mask)
+        with open(result_dir / "label_names.json", "w") as f:
+            json.dump(label_names, f)
+
         result_path = result_dir / "lamhat.json"
         with open(result_path, "w") as f:
             json.dump(result, f, indent=2)
@@ -468,5 +475,159 @@ def run_calibration_job(job_id: str) -> None:
         db.close()
 
 
+# ─── Validation ───────────────────────────────────────────────────────
+
+VALIDATION_ALPHAS = np.linspace(0.001, 0.99, 200).tolist()
+
+
+def _load_validation_artifacts(job_id: str):
+    """Load saved numpy artifacts for a completed job."""
+    result_dir = _job_dir(job_id) / "result"
+    probs_path = result_dir / "cal_probs.npy"
+    labels_path = result_dir / "cal_labels.npy"
+    mask_path = result_dir / "cal_pos_mask.npy"
+    names_path = result_dir / "label_names.json"
+
+    if not probs_path.exists():
+        return None
+
+    probs = np.load(str(probs_path))
+    labels = np.load(str(labels_path))
+    pos_mask = np.load(str(mask_path))
+    with open(names_path) as f:
+        label_names = json.load(f)
+
+    return probs, labels, pos_mask, label_names
+
+
+def _compute_validation_sweep(probs, labels, pos_mask, label_names, job_alpha):
+    """Sweep across alphas and compute FNR + avg set size at each."""
+    sweep = []
+    for a in VALIDATION_ALPHAS:
+        lam = compute_lamhat(probs, labels, pos_mask, float(a))
+        pred_sets = (probs >= lam).astype(np.float32)
+        fnr = false_negative_rate(pred_sets, labels, pos_mask)
+        avg_size = float(pred_sets.sum(axis=1).mean())
+        sweep.append({
+            "alpha": round(float(a), 4),
+            "lamhat": round(float(lam), 6),
+            "empirical_fnr": round(float(fnr), 4),
+            "avg_set_size": round(avg_size, 4),
+        })
+
+    # Compute metrics at the job's own alpha
+    job_lam = compute_lamhat(probs, labels, pos_mask, float(job_alpha))
+    job_preds = (probs >= job_lam).astype(np.float32)
+    job_fnr = false_negative_rate(job_preds, labels, pos_mask)
+    job_avg_size = float(job_preds.sum(axis=1).mean())
+
+    # Quality verdict
+    fnr_values = [s["empirical_fnr"] for s in sweep]
+    alpha_values = [s["alpha"] for s in sweep]
+    violations = sum(1 for f, a in zip(fnr_values, alpha_values) if f > a + 0.05)
+    avg_sizes = [s["avg_set_size"] for s in sweep]
+    monotonic_breaks = sum(
+        1 for i in range(1, len(avg_sizes)) if avg_sizes[i] > avg_sizes[i - 1] + 0.1
+    )
+
+    if violations <= 2 and monotonic_breaks <= 3 and job_fnr <= job_alpha + 0.02:
+        verdict = "good"
+    elif violations <= 8 and job_fnr <= job_alpha + 0.1:
+        verdict = "review"
+    else:
+        verdict = "unreliable"
+
+    return {
+        "sweep": sweep,
+        "job_alpha": round(float(job_alpha), 4),
+        "job_lamhat": round(float(job_lam), 6),
+        "job_fnr": round(float(job_fnr), 4),
+        "job_avg_set_size": round(float(job_avg_size), 4),
+        "n_samples": int(probs.shape[0]),
+        "n_positive": int(pos_mask.sum()),
+        "label_names": label_names,
+        "verdict": verdict,
+        "violations": violations,
+        "monotonic_breaks": monotonic_breaks,
+    }
+
+
+def get_validation_data(job_id: str, developer: Doctor, db: Session) -> dict:
+    """Return validation sweep data for a completed job."""
+    job = _get_own_job(job_id, developer.id, db)
+
+    if job.status != JobStatus.DONE.value:
+        raise HTTPException(status_code=400, detail=f"Job is not complete (status: {job.status})")
+
+    artifacts = _load_validation_artifacts(job_id)
+    if artifacts is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Validation artifacts not found. Please regenerate.",
+        )
+
+    probs, labels, pos_mask, label_names = artifacts
+    return _compute_validation_sweep(probs, labels, pos_mask, label_names, job.alpha)
+
+
+def regenerate_validation_artifacts(job_id: str, developer: Doctor, db: Session) -> dict:
+    """Re-run inference to generate validation artifacts for older jobs."""
+    job = _get_own_job(job_id, developer.id, db)
+
+    if job.status != JobStatus.DONE.value:
+        raise HTTPException(status_code=400, detail=f"Job is not complete (status: {job.status})")
+
+    base = _job_dir(job_id)
+    model_path = base / "model.pth"
+    config_path = base / "config.json"
+    dataset_dir = base / "dataset"
+    result_dir = base / "result"
+
+    if not model_path.exists() or not dataset_dir.exists():
+        raise HTTPException(status_code=404, detail="Original job files not found on disk")
+
+    preproc = _read_preproc(config_path)
+
+    # Find dataset root (may have wrapper dir)
+    candidates = list(dataset_dir.iterdir())
+    dataset_root = dataset_dir
+    for c in candidates:
+        if c.is_dir() and (c / "images").is_dir() and (c / "labels.csv").exists():
+            dataset_root = c
+            break
+
+    images_dir = dataset_root / "images"
+    labels_csv = dataset_root / "labels.csv"
+    img_paths, labels, pos_mask, label_names = _validate_labels_csv(labels_csv, images_dir)
+
+    model = _load_generic_model(model_path)
+    probs = _infer_all_probs(model, preproc, img_paths, batch_size=16)
+
+    result_dir.mkdir(exist_ok=True)
+    np.save(str(result_dir / "cal_probs.npy"), probs)
+    np.save(str(result_dir / "cal_labels.npy"), labels)
+    np.save(str(result_dir / "cal_pos_mask.npy"), pos_mask)
+    with open(result_dir / "label_names.json", "w") as f:
+        json.dump(label_names, f)
+
+    return _compute_validation_sweep(probs, labels, pos_mask, label_names, job.alpha)
+
+
+def get_validation_artifact_path(job_id: str, filename: str, developer: Doctor, db: Session) -> Path:
+    """Return the path to a downloadable validation artifact."""
+    job = _get_own_job(job_id, developer.id, db)
+
+    if job.status != JobStatus.DONE.value:
+        raise HTTPException(status_code=400, detail="Job is not complete")
+
+    allowed = {"cal_probs.npy", "cal_labels.npy", "cal_pos_mask.npy", "label_names.json"}
+    if filename not in allowed:
+        raise HTTPException(status_code=400, detail=f"Invalid artifact: {filename}")
+
+    path = _job_dir(job_id) / "result" / filename
+    if not path.exists():
+        raise HTTPException(status_code=404, detail=f"Artifact not found: {filename}")
+
+    return path
 
 
