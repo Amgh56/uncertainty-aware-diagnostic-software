@@ -1,5 +1,3 @@
-import { useRef } from "react";
-
 interface UploadCardProps {
   title: string;
   accept: string;
@@ -10,7 +8,30 @@ interface UploadCardProps {
 }
 
 export default function UploadCard({ title, accept, hint, file, onChange, disabled }: UploadCardProps) {
-  const inputRef = useRef<HTMLInputElement>(null);
+  const cardStyle = {
+    display: "flex",
+    flexDirection: "column" as const,
+    gap: "8px",
+    height: "100%",
+    minWidth: 0,
+  };
+
+  const dropZoneStyle = {
+    display: "flex",
+    flexDirection: "column" as const,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "6px",
+    padding: "24px 16px",
+    marginTop: "auto",
+    minHeight: "110px",
+    borderRadius: "10px",
+    border: file ? "2px dashed #6ee7b7" : "2px dashed #cbd5e1",
+    background: file ? "#f0fdf4" : "#f8fafc",
+    cursor: disabled ? "not-allowed" : "pointer",
+    textAlign: "center" as const,
+    opacity: disabled ? 0.5 : 1,
+  };
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const selected = e.target.files?.[0];
@@ -28,37 +49,17 @@ export default function UploadCard({ title, accept, hint, file, onChange, disabl
     e.preventDefault();
   }
 
-  function openPicker() {
-    if (disabled) return;
-    inputRef.current?.click();
-  }
-
-  function handleKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
-    if (disabled) return;
-    if (e.key === "Enter" || e.key === " ") {
-      e.preventDefault();
-      openPicker();
-    }
-  }
-
-  const inputId = `upload-${title
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "")}`;
+  const inputId = `upload-${title.replace(/\s+/g, "-").toLowerCase()}`;
 
   return (
-    <div className="dev-upload-card" onDrop={handleDrop} onDragOver={handleDragOver}>
+    <div className="dev-upload-card" style={cardStyle} onDrop={handleDrop} onDragOver={handleDragOver}>
       <p className="dev-upload-card-title">{title}</p>
       <p className="dev-upload-card-hint">{hint}</p>
 
-      <div
-        role="button"
-        tabIndex={disabled ? -1 : 0}
-        aria-disabled={disabled}
-        aria-controls={inputId}
-        onClick={openPicker}
-        onKeyDown={handleKeyDown}
+      <label
+        htmlFor={inputId}
         className={`dev-upload-drop-zone${file ? " dev-upload-drop-zone--selected" : ""}${disabled ? " dev-upload-drop-zone--disabled" : ""}`}
+        style={dropZoneStyle}
       >
         {file ? (
           <>
@@ -79,26 +80,15 @@ export default function UploadCard({ title, accept, hint, file, onChange, disabl
             <span className="dev-upload-accept">{accept} file</span>
           </>
         )}
-      </div>
+      </label>
 
       <input
-        ref={inputRef}
         id={inputId}
         type="file"
         accept={accept}
         onChange={handleChange}
         disabled={disabled}
-        style={{
-          position: "absolute",
-          width: 1,
-          height: 1,
-          padding: 0,
-          margin: -1,
-          overflow: "hidden",
-          clip: "rect(0, 0, 0, 0)",
-          whiteSpace: "nowrap",
-          border: 0,
-        }}
+        style={{ display: "none" }}
       />
     </div>
   );

@@ -91,7 +91,7 @@ export default function DeveloperDashboard() {
             <UploadCard
               title="Config (optional)"
               accept=".json"
-              hint="Preprocessing config — image size + normalisation. See requirements above."
+              hint="Preprocessing config — image size + normalisation."
               file={configFile}
               onChange={setConfigFile}
               disabled={submitting}

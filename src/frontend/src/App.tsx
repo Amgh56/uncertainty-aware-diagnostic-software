@@ -4,13 +4,17 @@ import ProtectedRoute from "./auth/ProtectedRoute";
 import DeveloperRoute from "./auth/DeveloperRoute";
 import LoginPage from "./auth/LoginPage";
 import RegisterPage from "./auth/RegisterPage";
+import ForgotPasswordPage from "./auth/ForgotPasswordPage";
+import ResetPasswordPage from "./auth/ResetPasswordPage";
 import HomePage from "./clinician/HomePage";
 import DiagnosticDashboard from "./clinician/DiagnosticDashboard";
 import PredictionDetail from "./clinician/PredictionDetail";
 import DeveloperDashboard from "./developer/DeveloperDashboard";
 import DeveloperHowToPage from "./developer/DeveloperHowToPage";
+import LandingPage from "./landing/LandingPage";
 import "./styles/diagnostic-dashboard.css";
 import "./styles/auth.css";
+import "./styles/landing.css";
 
 export default function App() {
   return (
@@ -19,6 +23,8 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/home" element={
             <ProtectedRoute><HomePage /></ProtectedRoute>
           } />
@@ -37,7 +43,8 @@ export default function App() {
           <Route path="/developer/calibrate" element={
             <DeveloperRoute><DeveloperDashboard /></DeveloperRoute>
           } />
-          <Route path="*" element={<Navigate to="/home" replace />} />
+          <Route path="/" element={<LandingPage />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AuthProvider>
     </BrowserRouter>

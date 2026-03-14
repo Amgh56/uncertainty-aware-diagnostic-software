@@ -1243,3 +1243,47 @@ details[open] .dev-format-summary::before {
     display: none;
   }
 }
+
+
+/* ── Forgot password link row ── */
+.auth-forgot-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: -4px;
+}
+
+.auth-forgot-link {
+  font-size: 13px;
+}
+
+/* ── Success box (used on forgot + reset pages) ── */
+.auth-success-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 12px;
+  padding: 24px 16px;
+}
+
+.auth-success-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.auth-success-text {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.7;
+  color: #64748b;
+}
+
+/* ── Reset page — email display ── */
+.auth-reset-email {
+  margin: 4px 0 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #2563eb;
+}

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { fetchCurrentUser } from "./api/authApi";
 import AuthLayout from "./AuthLayout";
@@ -60,6 +60,11 @@ export default function LoginPage() {
             autoComplete="current-password"
             required
           />
+          <div className="auth-forgot-row">
+            <Link to="/forgot-password" className="auth-link auth-forgot-link">
+              Forgot password?
+            </Link>
+          </div>
 
           {error && <div className="auth-error">{error}</div>}
 

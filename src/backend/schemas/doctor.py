@@ -33,3 +33,14 @@ class DeveloperRegisterRequest(BaseModel):
     email: str = Field(..., examples=["researcher@uni.ac.uk"])
     password: str = Field(..., min_length=6, examples=["securepass123"])
     full_name: str = Field(..., examples=["Dr. Alice Researcher"])
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: str = Field(..., examples=["doctor@hospital.com"])
+
+
+class ResetPasswordRequest(BaseModel):
+    email: str = Field(..., examples=["doctor@hospital.com"])
+    token: str = Field(..., examples=["abc123..."])
+    timestamp: int = Field(..., examples=[1700000000])
+    new_password: str = Field(..., min_length=6, examples=["newSecurePass1"])

@@ -107,11 +107,22 @@ function getInitials(fullName: string) {
     .join("");
 }
 
+function HamburgerIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="3" y1="6" x2="21" y2="6" />
+      <line x1="3" y1="12" x2="21" y2="12" />
+      <line x1="3" y1="18" x2="21" y2="18" />
+    </svg>
+  );
+}
+
 export default function ClinicianLayout({ title, subtitle, children }: ClinicianLayoutProps) {
   const { pathname } = useLocation();
   const { doctor, logout } = useAuth();
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem("clinician-sidebar-collapsed") === "1");
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement | null>(null);
 
   const dashboardActive = pathname === "/home" || pathname.startsWith("/predictions/");
@@ -135,12 +146,51 @@ export default function ClinicianLayout({ title, subtitle, children }: Clinician
 
   useEffect(() => {
     setProfileMenuOpen(false);
+    setMobileOpen(false);
   }, [pathname, collapsed]);
 
   return (
-    <div className={`clinician-layout${collapsed ? " clinician-layout--collapsed" : ""}`}>
+    <div className={`clinician-layout${collapsed ? " clinician-layout--collapsed" : ""}${mobileOpen ? " clinician-layout--mobile-open" : ""}`}>
+
+      {/* Mobile top bar — only visible on small screens */}
+      <div className="clinician-mobile-topbar">
+        <button
+          type="button"
+          className="clinician-mobile-hamburger"
+          onClick={() => setMobileOpen(true)}
+          aria-label="Open navigation"
+        >
+          <HamburgerIcon />
+        </button>
+        <div className="clinician-mobile-brand-wrap">
+          <div className="clinician-mobile-brand-icon">
+            <PulseIcon />
+          </div>
+          <span className="clinician-mobile-brand">SafeDx</span>
+        </div>
+      </div>
+
+      {/* Overlay backdrop — tapping it closes the drawer */}
+      {mobileOpen && (
+        <div
+          className="clinician-mobile-backdrop"
+          onClick={() => setMobileOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
       <aside className="clinician-sidebar">
         <div className="clinician-sidebar-top">
+          <button
+            type="button"
+            className="clinician-sidebar-toggle"
+            onClick={() => setCollapsed((value) => !value)}
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            aria-pressed={collapsed}
+          >
+            <HamburgerIcon />
+          </button>
+
           <div className="clinician-brand">
             <div className="clinician-brand-icon">
               <PulseIcon />
@@ -149,16 +199,6 @@ export default function ClinicianLayout({ title, subtitle, children }: Clinician
               <span className="clinician-brand-title">SafeDx</span>
             </div>
           </div>
-
-          <button
-            type="button"
-            className="clinician-sidebar-toggle"
-            onClick={() => setCollapsed((value) => !value)}
-            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-            aria-pressed={collapsed}
-          >
-            <ChevronIcon direction={collapsed ? "right" : "left"} />
-          </button>
         </div>
 
         <div className="clinician-sidebar-divider" aria-hidden="true" />

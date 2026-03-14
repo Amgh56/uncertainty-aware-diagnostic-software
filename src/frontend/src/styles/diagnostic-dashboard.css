@@ -541,23 +541,22 @@ body {
 }
 
 .developer-sidebar-toggle {
-  width: 38px;
-  height: 38px;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  background: #ffffff;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 0;
+  background: none;
   color: #475569;
   display: grid;
   place-items: center;
   cursor: pointer;
   flex-shrink: 0;
-  transition: border-color 0.18s ease, color 0.18s ease, background 0.18s ease;
+  padding: 0;
+  transition: color 0.15s ease;
 }
 
 .developer-sidebar-toggle:hover {
-  border-color: #bfdbfe;
-  background: #eff6ff;
-  color: var(--developer-brand);
+  color: #0f172a;
 }
 
 .developer-chevron-icon {
@@ -896,6 +895,84 @@ body {
 
 .developer-guide-section-head {
   max-width: 72ch;
+}
+
+/* Accordion toggle button */
+.developer-accordion-toggle {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+}
+
+.developer-accordion-toggle:hover .developer-guide-section-title {
+  color: #2563eb;
+}
+
+.developer-accordion-toggle-left {
+  flex: 1;
+}
+
+.developer-accordion-chevron {
+  flex-shrink: 0;
+  margin-top: 4px;
+  color: #94a3b8;
+  transition: transform 0.2s ease;
+}
+
+.developer-accordion-chevron.open {
+  transform: rotate(180deg);
+}
+
+.developer-accordion-body {
+  margin-top: 4px;
+}
+
+.developer-tips-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.developer-tip-card {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  padding: 18px 20px;
+  background: #f8faff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+}
+
+.developer-tip-icon {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #eff6ff;
+  border-radius: 10px;
+}
+
+.developer-tip-title {
+  margin: 0 0 6px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.developer-tip-text {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.7;
+  color: #64748b;
 }
 
 .developer-steps {
@@ -1792,8 +1869,10 @@ body {
     margin-left: 284px;
   }
 
-  .dash-grid {
+  .dash-grid,
+  .clinician-layout .dash-grid {
     grid-template-columns: 1fr;
+    grid-auto-flow: row;
   }
 
   .case-card-stats {
@@ -1805,64 +1884,241 @@ body {
   }
 }
 
+/* ── Mobile topbar & hamburger (hidden on desktop) ── */
+.clinician-mobile-topbar {
+  display: none;
+}
+
+.clinician-mobile-hamburger {
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 0;
+  background: none;
+  color: #475569;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  padding: 0;
+}
+
+.clinician-mobile-hamburger:hover {
+  color: #0f172a;
+}
+
+.clinician-mobile-brand {
+  font-size: 20px;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.04em;
+}
+
+.clinician-mobile-brand-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+
+.clinician-mobile-brand-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1f6feb;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.clinician-mobile-brand-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* Developer mobile — reuse same styles */
+.developer-mobile-topbar {
+  display: none;
+}
+
+.developer-mobile-hamburger {
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: none;
+  color: #475569;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  padding: 0;
+}
+
+.developer-mobile-hamburger:hover {
+  color: #0f172a;
+}
+
+.developer-mobile-brand-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+
+.developer-mobile-brand-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1f6feb;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.developer-mobile-brand-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.developer-mobile-brand {
+  font-size: 20px;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.04em;
+}
+
+.developer-mobile-backdrop {
+  display: none;
+}
+
+.clinician-mobile-backdrop {
+  display: none;
+}
+
 @media (max-width: 1040px) {
   .clinician-layout {
-    padding: 16px;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
   }
 
   .developer-layout {
     padding: 16px;
   }
 
+  /* Show mobile topbar */
+  .clinician-mobile-topbar {
+    display: flex;
+    align-items: center;
+    padding: 10px 14px;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(16px);
+    border: 1px solid #e2e8f0;
+    border-radius: 20px;
+    margin: 12px 12px 0;
+    position: sticky;
+    top: 12px;
+    z-index: 15;
+    box-shadow: 0 4px 16px rgba(15, 23, 42, 0.06);
+  }
+
+  /* Sidebar becomes left drawer */
   .clinician-sidebar {
-    position: static;
-    width: auto;
-    min-height: auto;
-    margin-bottom: 18px;
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 272px;
+    border-radius: 0;
+    transform: translateX(-100%);
+    transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 30;
   }
 
-  .clinician-nav {
-    flex-direction: row;
-    flex-wrap: wrap;
+  /* Open state — slide in */
+  .clinician-layout--mobile-open .clinician-sidebar {
+    transform: translateX(0);
   }
 
-  .clinician-nav-section {
-    gap: 10px;
-  }
-
-  .clinician-nav-item {
-    flex: 1 1 180px;
+  /* Backdrop */
+  .clinician-mobile-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.35);
+    backdrop-filter: blur(2px);
+    z-index: 25;
   }
 
   .clinician-content-shell {
     margin-left: 0;
-    padding: 0;
+    padding: 16px;
     min-height: auto;
+  }
+
+  /* Hide the collapse toggle on mobile — not needed with drawer */
+  .clinician-sidebar-toggle {
+    display: none;
+  }
+
+  /* ── Developer mobile drawer ── */
+  .developer-layout {
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .developer-mobile-topbar {
+    display: flex;
+    align-items: center;
+    padding: 10px 14px;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(16px);
+    border: 1px solid #e2e8f0;
+    border-radius: 20px;
+    margin: 12px 12px 0;
+    position: sticky;
+    top: 12px;
+    z-index: 15;
+    box-shadow: 0 4px 16px rgba(15, 23, 42, 0.06);
+  }
+
+  .developer-mobile-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.35);
+    backdrop-filter: blur(2px);
+    z-index: 25;
   }
 
   .developer-sidebar {
-    position: static;
-    width: auto;
-    min-height: auto;
-    margin-bottom: 18px;
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 272px;
+    border-radius: 0;
+    transform: translateX(-100%);
+    transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 30;
   }
 
-  .developer-nav {
-    flex-direction: row;
-    flex-wrap: wrap;
+  .developer-layout--mobile-open .developer-sidebar {
+    transform: translateX(0);
   }
 
-  .developer-nav-section {
-    gap: 10px;
-  }
-
-  .developer-nav-item {
-    flex: 1 1 220px;
+  .developer-sidebar-toggle {
+    display: none;
   }
 
   .developer-content-shell {
     margin-left: 0;
-    padding: 0;
+    padding: 16px;
     min-height: auto;
   }
 
@@ -1892,32 +2148,20 @@ body {
     padding: 14px;
   }
 
-  .clinician-layout {
-    padding: 12px;
-  }
-
   .developer-layout {
     padding: 12px;
   }
 
   .clinician-sidebar {
     padding: 18px 16px;
-    border-radius: 24px;
+    border-radius: 0;
     gap: 16px;
   }
 
   .developer-sidebar {
     padding: 18px 16px;
-    border-radius: 24px;
+    border-radius: 0;
     gap: 16px;
-  }
-
-  .clinician-brand {
-    align-items: flex-start;
-  }
-
-  .clinician-sidebar-top {
-    align-items: flex-start;
   }
 
   .developer-sidebar-top {
@@ -1944,6 +2188,10 @@ body {
   .developer-guide-cta {
     padding: 20px 18px;
     border-radius: 22px;
+  }
+
+  .developer-tips-grid {
+    grid-template-columns: 1fr;
   }
 
   .clinician-page-title {

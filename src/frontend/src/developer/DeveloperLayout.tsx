@@ -118,11 +118,22 @@ function getInitials(fullName: string) {
     .join("");
 }
 
+function HamburgerIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="3" y1="6" x2="21" y2="6" />
+      <line x1="3" y1="12" x2="21" y2="12" />
+      <line x1="3" y1="18" x2="21" y2="18" />
+    </svg>
+  );
+}
+
 export default function DeveloperLayout({ title, subtitle, children }: DeveloperLayoutProps) {
   const { pathname } = useLocation();
   const { doctor, logout } = useAuth();
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem("developer-sidebar-collapsed") === "1");
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement | null>(null);
   const guideActive = pathname === "/developer/how-to-calibrate" || pathname === "/developer";
   const calibrateActive = pathname === "/developer/calibrate";
@@ -145,12 +156,50 @@ export default function DeveloperLayout({ title, subtitle, children }: Developer
 
   useEffect(() => {
     setProfileMenuOpen(false);
+    setMobileOpen(false);
   }, [pathname, collapsed]);
 
   return (
-    <div className={`developer-layout${collapsed ? " developer-layout--collapsed" : ""}`}>
+    <div className={`developer-layout${collapsed ? " developer-layout--collapsed" : ""}${mobileOpen ? " developer-layout--mobile-open" : ""}`}>
+
+      {/* Mobile top bar */}
+      <div className="developer-mobile-topbar">
+        <button
+          type="button"
+          className="developer-mobile-hamburger"
+          onClick={() => setMobileOpen(true)}
+          aria-label="Open navigation"
+        >
+          <HamburgerIcon />
+        </button>
+        <div className="developer-mobile-brand-wrap">
+          <div className="developer-mobile-brand-icon">
+            <PulseIcon />
+          </div>
+          <span className="developer-mobile-brand">SafeDx</span>
+        </div>
+      </div>
+
+      {mobileOpen && (
+        <div
+          className="developer-mobile-backdrop"
+          onClick={() => setMobileOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
       <aside className="developer-sidebar">
         <div className="developer-sidebar-top">
+          <button
+            type="button"
+            className="developer-sidebar-toggle"
+            onClick={() => setCollapsed((value) => !value)}
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            aria-pressed={collapsed}
+          >
+            <HamburgerIcon />
+          </button>
+
           <div className="developer-brand">
             <div className="developer-brand-icon">
               <PulseIcon />
@@ -159,16 +208,6 @@ export default function DeveloperLayout({ title, subtitle, children }: Developer
               <span className="developer-brand-title">SafeDx</span>
             </div>
           </div>
-
-          <button
-            type="button"
-            className="developer-sidebar-toggle"
-            onClick={() => setCollapsed((value) => !value)}
-            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-            aria-pressed={collapsed}
-          >
-            <ChevronIcon direction={collapsed ? "right" : "left"} />
-          </button>
         </div>
 
         <div className="developer-sidebar-divider" aria-hidden="true" />
