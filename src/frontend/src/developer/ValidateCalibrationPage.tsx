@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useAuth } from "../context/AuthContext";
 import DeveloperLayout from "./DeveloperLayout";
 import {
@@ -8,7 +8,7 @@ import {
   listJobs,
   regenerateValidation,
 } from "./api/developerApi";
-import { useRef } from "react";
+import PublishModelDialog from "./PublishModelDialog";
 import {
   LineChart,
   Line,
@@ -135,6 +135,9 @@ export default function ValidateCalibrationPage() {
     a.click();
     URL.revokeObjectURL(url);
   }
+
+  const [showPublish, setShowPublish] = useState(false);
+  const [publishedSuccess, setPublishedSuccess] = useState(false);
 
   const selectedJob = completedJobs.find((j) => j.id === selectedJobId);
 
@@ -490,6 +493,68 @@ export default function ValidateCalibrationPage() {
                 </button>
               </div>
             </div>
+
+            {/* ── Publish Section ── */}
+            <div className={`val-card ${validation.verdict === "unreliable" ? "val-publish-disabled" : "val-publish-card"}`}>
+              <h3 className="val-card-title">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                  <rect x="3" y="5" width="14" height="12" rx="2" stroke="currentColor" strokeWidth="1.5" fill="none" />
+                  <path d="M7 5V3a3 3 0 016 0v2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                </svg>
+                Publish This Model
+              </h3>
+              {validation.verdict === "unreliable" ? (
+                <p style={{ color: "#dc2626", margin: 0 }}>
+                  This calibration has an "unreliable" verdict and cannot be published.
+                  Please recalibrate with a larger or higher-quality dataset.
+                </p>
+              ) : selectedJob?.is_published || publishedSuccess ? (
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2.5" strokeLinecap="round">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                  <span style={{ color: "#059669", fontWeight: 600 }}>
+                    This model has been published successfully.
+                  </span>
+                </div>
+              ) : (
+                <>
+                  <p style={{ margin: "0 0 12px" }}>
+                    Your calibration passed validation with verdict:{" "}
+                    <strong style={{ color: validation.verdict === "good" ? "#059669" : "#d97706" }}>
+                      {validation.verdict.toUpperCase()}
+                    </strong>.
+                    {validation.verdict === "review" && " Publishing is allowed but proceed with caution."}
+                    {" "}You can now publish this as a reusable model package.
+                  </p>
+                  <button
+                    className="val-btn val-btn-primary"
+                    onClick={() => setShowPublish(true)}
+                  >
+                    Publish Model
+                  </button>
+                </>
+              )}
+            </div>
+
+            {/* Publish Dialog */}
+            {showPublish && validation && (
+              <PublishModelDialog
+                jobId={selectedJobId}
+                validation={validation}
+                onPublished={() => {
+                  setShowPublish(false);
+                  setPublishedSuccess(true);
+                  // Update the job in the list to reflect published status
+                  setCompletedJobs((prev) =>
+                    prev.map((j) =>
+                      j.id === selectedJobId ? { ...j, is_published: true } : j
+                    )
+                  );
+                }}
+                onCancel={() => setShowPublish(false)}
+              />
+            )}
           </>
         )}
       </div>

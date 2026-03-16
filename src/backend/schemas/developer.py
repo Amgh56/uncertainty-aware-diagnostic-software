@@ -28,6 +28,8 @@ class JobStatusResponse(BaseModel):
     alpha: float
     result_json: Optional[str] = None
     error_message: Optional[str] = None
+    validation_verdict: Optional[str] = None
+    is_published: bool = False
     created_at: datetime
     completed_at: Optional[datetime] = None
 

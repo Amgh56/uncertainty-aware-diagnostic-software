@@ -1,22 +1,38 @@
-import { useCallback, useRef, useState } from "react";
-import { predictImage, Patient, PredictionResponse } from "./api/clinicianApi";
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  predictImage,
+  listClinicianModels,
+  Patient,
+  PredictionResponse,
+  ClinicianModel,
+} from "./api/clinicianApi";
 import { useAuth } from "../context/AuthContext";
 import PatientForm from "./PatientForm";
 import ClinicianLayout from "./ClinicianLayout";
 
-const uncertaintyColors = {
+const uncertaintyColors: Record<string, { bg: string; text: string; border: string }> = {
   Low: { bg: "#dcfce7", text: "#166534", border: "#86efac" },
   Medium: { bg: "#fff7ed", text: "#9a3412", border: "#fdba74" },
   High: { bg: "#fef2f2", text: "#991b1b", border: "#fca5a5" },
 };
 
-const statusColors = {
+const statusColors: Record<string, { bg: string; text: string; border: string }> = {
   true: { bg: "#eff6ff", text: "#1e40af", border: "#93c5fd" },
   false: { bg: "#f9fafb", text: "#6b7280", border: "#e5e7eb" },
 };
 
+const verdictStyles: Record<string, { color: string; bg: string }> = {
+  good: { color: "#059669", bg: "#f0fdf4" },
+  review: { color: "#d97706", bg: "#fffbeb" },
+};
+
 export default function DiagnosticDashboard() {
   const { token } = useAuth();
+
+  // Model selection
+  const [availableModels, setAvailableModels] = useState<ClinicianModel[]>([]);
+  const [selectedModelId, setSelectedModelId] = useState<string>("");
+  const [modelsLoading, setModelsLoading] = useState(true);
 
   const [patient, setPatient] = useState<Patient | null>(null);
   const [image, setImage] = useState<File | null>(null);
@@ -29,20 +45,32 @@ export default function DiagnosticDashboard() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFile = useCallback((file: File | undefined) => {
-    if (!file) {
-      return;
-    }
+  const selectedModel = availableModels.find((m) => m.id === selectedModelId) ?? null;
 
+  // Fetch available models on mount
+  useEffect(() => {
+    if (!token) return;
+    listClinicianModels(token)
+      .then((res) => {
+        setAvailableModels(res.models);
+        // Auto-select first model if available
+        if (res.models.length > 0) {
+          setSelectedModelId(res.models[0].id);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setModelsLoading(false));
+  }, [token]);
+
+  const handleFile = useCallback((file: File | undefined) => {
+    if (!file) return;
     if (!file.type.startsWith("image/")) {
       setError("Please upload an image file (PNG, JPEG)");
       return;
     }
-
     setImage(file);
     setError(null);
     setResults(null);
-
     const reader = new FileReader();
     reader.onload = (event) => setImagePreview((event.target?.result as string) || null);
     reader.readAsDataURL(file);
@@ -52,8 +80,7 @@ export default function DiagnosticDashboard() {
     (event: React.DragEvent) => {
       event.preventDefault();
       setDragOver(false);
-      const file = event.dataTransfer.files?.[0];
-      handleFile(file);
+      handleFile(event.dataTransfer.files?.[0]);
     },
     [handleFile]
   );
@@ -64,19 +91,21 @@ export default function DiagnosticDashboard() {
   };
 
   const handleDragLeave = () => setDragOver(false);
-
   const handleUploadClick = () => fileInputRef.current?.click();
 
   const handlePredict = async () => {
-    if (!image || !patient) {
-      return;
-    }
+    if (!image || !patient) return;
 
     setLoading(true);
     setError(null);
 
     try {
-      const data = await predictImage(image, patient.id, token!);
+      const data = await predictImage(
+        image,
+        patient.id,
+        token!,
+        selectedModelId || undefined,
+      );
       setResults(data);
     } catch (requestError) {
       setError((requestError as Error).message || "Failed to connect to the server");
@@ -94,11 +123,87 @@ export default function DiagnosticDashboard() {
     setZoom(100);
   };
 
+  // Number of labels (from selected model or default 5)
+  const numLabels = selectedModel?.num_labels ?? results?.findings?.length ?? 5;
+
   return (
     <ClinicianLayout
       title="New Patient"
       subtitle="Create a patient record and upload a new chest X-ray to start a diagnostic case."
     >
+        {/* ── Model Selector ── */}
+        <div className="model-selector-section">
+          <div className="model-selector-header">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="7" width="18" height="14" rx="2" />
+              <path d="M7 7V5a2 2 0 012-2h6a2 2 0 012 2v2" />
+            </svg>
+            <h3>Select Diagnostic Model</h3>
+          </div>
+
+          {modelsLoading ? (
+            <div style={{ padding: "12px 0", color: "#64748b", fontSize: "0.85rem" }}>
+              Loading available models...
+            </div>
+          ) : availableModels.length === 0 ? (
+            <div className="model-selector-empty">
+              <p>No published models available for clinical use yet.</p>
+              <p style={{ fontSize: "0.8rem", color: "#94a3b8" }}>
+                The legacy built-in model will be used. Ask a developer to publish a model for clinician use.
+              </p>
+            </div>
+          ) : (
+            <>
+              <select
+                className="model-selector-dropdown"
+                value={selectedModelId}
+                onChange={(e) => {
+                  setSelectedModelId(e.target.value);
+                  setResults(null);
+                }}
+              >
+                <option value="">-- Use legacy built-in model --</option>
+                {availableModels.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name} (v{m.version}) — {m.modality}
+                  </option>
+                ))}
+              </select>
+
+              {selectedModel && (
+                <div className="model-info-card">
+                  <div className="model-info-top">
+                    <span className="model-info-name">{selectedModel.name}</span>
+                    <span className="model-info-version">v{selectedModel.version}</span>
+                    {(() => {
+                      const vs = verdictStyles[selectedModel.validation_verdict];
+                      return vs ? (
+                        <span style={{
+                          padding: "2px 8px", borderRadius: 12, fontSize: 11,
+                          fontWeight: 600, color: vs.color, background: vs.bg,
+                        }}>
+                          {selectedModel.validation_verdict.charAt(0).toUpperCase() +
+                            selectedModel.validation_verdict.slice(1)}
+                        </span>
+                      ) : null;
+                    })()}
+                  </div>
+                  <p className="model-info-desc">{selectedModel.description}</p>
+                  <div className="model-info-meta">
+                    <span>Modality: {selectedModel.modality}</span>
+                    <span>Labels: {selectedModel.num_labels}</span>
+                    <span>Alpha: {selectedModel.alpha}</span>
+                    <span>Coverage: {Math.round((1 - selectedModel.alpha) * 100)}%</span>
+                    {selectedModel.developer_name && (
+                      <span>By: {selectedModel.developer_name}</span>
+                    )}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
         <div className="dash-grid">
           <section className="panel">
             <div className="panel-header">
@@ -238,7 +343,11 @@ export default function DiagnosticDashboard() {
                 </svg>
                 <div>
                   <h2 className="panel-title">Model Predictions and Uncertainty</h2>
-                  <p className="panel-subtitle">Prediction set generated by the diagnostic support model</p>
+                  <p className="panel-subtitle">
+                    {results?.model_info
+                      ? `Using: ${results.model_info.name} (v${results.model_info.version})`
+                      : "Prediction set generated by the diagnostic support model"}
+                  </p>
                 </div>
               </div>
             </div>
@@ -306,8 +415,8 @@ export default function DiagnosticDashboard() {
                     </div>
 
                     {results.findings.map((findingRow, index) => {
-                      const uncertaintyPalette = uncertaintyColors[findingRow.uncertainty];
-                      const statusPalette = statusColors[findingRow.in_prediction_set.toString()];
+                      const uncertaintyPalette = uncertaintyColors[findingRow.uncertainty] ?? uncertaintyColors.High;
+                      const statusPalette = statusColors[findingRow.in_prediction_set.toString()] ?? statusColors.false;
 
                       return (
                         <div
@@ -373,8 +482,20 @@ export default function DiagnosticDashboard() {
                       </div>
                       <div>
                         <span className="tech-label">Set size</span>
-                        <span className="tech-value">{results.prediction_set_size} / 5</span>
+                        <span className="tech-value">{results.prediction_set_size} / {numLabels}</span>
                       </div>
+                      {results.model_info && (
+                        <div>
+                          <span className="tech-label">Model</span>
+                          <span className="tech-value">{results.model_info.name} v{results.model_info.version}</span>
+                        </div>
+                      )}
+                      {!results.model_info && (
+                        <div>
+                          <span className="tech-label">Model</span>
+                          <span className="tech-value">Legacy (built-in)</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>

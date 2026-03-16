@@ -30,6 +30,14 @@ from schemas.prediction import (
     PredictionResponse,
 )
 from schemas.health import HealthResponse
+from schemas.published_model import (
+    PublishModelRequest,
+    PublishedModelListResponse,
+    PublishedModelResponse,
+    PublishedModelSummary,
+    ToggleActiveRequest,
+    UpdateVisibilityRequest,
+)
 
 __all__ = [
     "ErrorResponse",
@@ -54,4 +62,10 @@ __all__ = [
     "PredictionDetailResponse",
     "PredictionResponse",
     "HealthResponse",
+    "PublishModelRequest",
+    "PublishedModelListResponse",
+    "PublishedModelResponse",
+    "PublishedModelSummary",
+    "ToggleActiveRequest",
+    "UpdateVisibilityRequest",
 ]

@@ -54,6 +54,7 @@ router = APIRouter(tags=["Predictions"])
 async def predict(
     file: UploadFile = File(..., description="Chest X-ray image (PNG or JPEG)"),
     patient_id: int = Form(..., description="ID of the patient this X-ray belongs to"),
+    model_id: str = Form(None, description="Published model ID (optional — omit for legacy model)"),
     current_doctor: Doctor = Depends(get_current_doctor),
     db: Session = Depends(get_db),
 ):
@@ -65,7 +66,7 @@ async def predict(
         if not img_bytes:
             raise ValueError("Uploaded file is empty")
 
-        return create_prediction(file, img_bytes, patient_id, current_doctor, db)
+        return create_prediction(file, img_bytes, patient_id, current_doctor, db, model_id=model_id)
 
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

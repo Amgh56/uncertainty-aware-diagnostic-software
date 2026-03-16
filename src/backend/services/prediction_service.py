@@ -1,11 +1,12 @@
 """Business logic for predictions: creation, history, detail retrieval."""
 
 import json
+from typing import Optional
 
 from fastapi import HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
-from models import Doctor, Patient, Prediction
+from models import Doctor, Patient, Prediction, PublishedModel
 from schemas import HistoryItem, HistoryResponse
 from services.ml_service import ml_state
 
@@ -28,6 +29,7 @@ def create_prediction(
     patient_id: int,
     doctor: Doctor,
     db: Session,
+    model_id: Optional[str] = None,
 ) -> dict:
     """Validate patient, upload image, run inference, persist, return result."""
     patient = (
@@ -45,7 +47,29 @@ def create_prediction(
         file.content_type or "image/png",
     )
 
-    findings = ml_state.run_inference(img_bytes)
+    # Determine which model to use
+    published_model = None
+    if model_id:
+        published_model = (
+            db.query(PublishedModel)
+            .filter(PublishedModel.id == model_id, PublishedModel.is_active == True)
+            .first()
+        )
+        if not published_model:
+            raise HTTPException(
+                status_code=404,
+                detail="Published model not found or is inactive",
+            )
+        findings = ml_state.run_published_inference(img_bytes, published_model)
+        alpha = published_model.alpha
+        lamhat = published_model.lamhat
+        num_labels = published_model.num_labels
+    else:
+        # Legacy: use hardcoded model
+        findings = ml_state.run_inference(img_bytes)
+        alpha = ml_state.alpha
+        lamhat = ml_state.lamhat
+        num_labels = len(findings)
 
     prediction_set_size = sum(1 for f in findings if f["in_prediction_set"])
     top = findings[0]
@@ -57,14 +81,27 @@ def create_prediction(
         top_finding=top["finding"],
         top_probability=top["probability"],
         prediction_set_size=prediction_set_size,
-        coverage=f"{int((1 - ml_state.alpha) * 100)}%",
-        alpha=ml_state.alpha,
-        lamhat=round(ml_state.lamhat, 6),
+        coverage=f"{int((1 - alpha) * 100)}%",
+        alpha=alpha,
+        lamhat=round(lamhat, 6),
         findings_json=json.dumps(findings),
+        published_model_id=model_id,
     )
     db.add(prediction)
     db.commit()
     db.refresh(prediction)
+
+    # Build model info for response
+    model_info = None
+    if published_model:
+        model_info = {
+            "id": published_model.id,
+            "name": published_model.name,
+            "version": published_model.version,
+            "modality": published_model.modality,
+            "num_labels": published_model.num_labels,
+            "validation_verdict": published_model.validation_verdict,
+        }
 
     return {
         "id": prediction.id,
@@ -73,11 +110,12 @@ def create_prediction(
         "top_finding": top["finding"],
         "top_probability": top["probability"],
         "prediction_set_size": prediction_set_size,
-        "coverage": f"{int((1 - ml_state.alpha) * 100)}%",
-        "alpha": ml_state.alpha,
-        "lamhat": round(ml_state.lamhat, 6),
+        "coverage": f"{int((1 - alpha) * 100)}%",
+        "alpha": alpha,
+        "lamhat": round(lamhat, 6),
         "findings": findings,
         "created_at": prediction.created_at.isoformat(),
+        "model_info": model_info,
     }
 
 
@@ -123,6 +161,24 @@ def get_prediction_detail(
     patient = db.query(Patient).filter(Patient.id == prediction.patient_id).first()
     findings = json.loads(prediction.findings_json)
 
+    # Get model info if prediction used a published model
+    model_info = None
+    if prediction.published_model_id:
+        pub_model = (
+            db.query(PublishedModel)
+            .filter(PublishedModel.id == prediction.published_model_id)
+            .first()
+        )
+        if pub_model:
+            model_info = {
+                "id": pub_model.id,
+                "name": pub_model.name,
+                "version": pub_model.version,
+                "modality": pub_model.modality,
+                "num_labels": pub_model.num_labels,
+                "validation_verdict": pub_model.validation_verdict,
+            }
+
     return {
         "id": prediction.id,
         "patient_id": prediction.patient_id,
@@ -135,6 +191,7 @@ def get_prediction_detail(
         "lamhat": prediction.lamhat,
         "findings": findings,
         "created_at": prediction.created_at.isoformat(),
+        "model_info": model_info,
         "patient": {
             "id": patient.id,
             "mrn": patient.mrn,

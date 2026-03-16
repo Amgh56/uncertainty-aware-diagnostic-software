@@ -21,6 +21,7 @@ from routes.auth_routes import router as auth_router
 from routes.patient_routes import router as patient_router
 from routes.prediction_routes import router as prediction_router
 from routes.developer_routes import router as developer_router
+from routes.model_routes import router as model_router
 
 
 tags_metadata = [
@@ -45,6 +46,13 @@ tags_metadata = [
             "and a labelled calibration dataset (.zip) to run the conformal calibration pipeline "
             "in the background. Download a `lamhat.json` with the calibrated threshold and metrics. "
             "Requires a **developer** role account (`POST /developer/register`)."
+        ),
+    },
+    {
+        "name": "Models",
+        "description": (
+            "Published Model Packages. Developers publish calibrated models; "
+            "clinicians browse and use them for inference; the community can download and reuse them."
         ),
     },
     {
@@ -84,6 +92,7 @@ app.include_router(auth_router)
 app.include_router(patient_router)
 app.include_router(prediction_router)
 app.include_router(developer_router)
+app.include_router(model_router)
 
 
 @app.on_event("startup")

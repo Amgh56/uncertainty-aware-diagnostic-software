@@ -113,6 +113,7 @@ export default function JobsTable({ token, onNewJob }: JobsTableProps) {
             <th>Dataset</th>
             <th>Alpha</th>
             <th>Status</th>
+            <th>Published</th>
             <th>Created</th>
             <th>Actions</th>
           </tr>
@@ -125,6 +126,24 @@ export default function JobsTable({ token, onNewJob }: JobsTableProps) {
               <td className="dev-job-filename" title={job.dataset_filename}>{job.dataset_filename}</td>
               <td>{job.alpha}</td>
               <td><StatusBadge status={job.status} /></td>
+              <td>
+                {job.is_published ? (
+                  <span style={{
+                    display: "inline-flex", alignItems: "center", gap: 4,
+                    padding: "3px 10px", borderRadius: 20, fontSize: 12, fontWeight: 600,
+                    color: "#4338ca", background: "#eef2ff",
+                  }}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                    Published
+                  </span>
+                ) : job.status === "done" ? (
+                  <span style={{ color: "#94a3b8", fontSize: 12 }}>Not yet</span>
+                ) : (
+                  <span style={{ color: "#cbd5e1", fontSize: 12 }}>—</span>
+                )}
+              </td>
               <td>{new Date(job.created_at).toLocaleString()}</td>
               <td>
                 <div style={{ display: "flex", gap: 6 }}>

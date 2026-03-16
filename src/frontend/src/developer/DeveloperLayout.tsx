@@ -93,6 +93,33 @@ function ValidateIcon() {
   );
 }
 
+function ModelsIcon() {
+  return (
+    <svg className="developer-nav-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <rect
+        x="3" y="7" width="18" height="14" rx="2"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M7 7V5a2 2 0 012-2h6a2 2 0 012 2v2"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M12 11v4M10 13h4"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
 function LogoutIcon() {
   return (
     <svg className="developer-nav-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -166,6 +193,7 @@ export default function DeveloperLayout({ title, subtitle, children }: Developer
   const guideActive = pathname === "/developer/how-to-calibrate" || pathname === "/developer";
   const calibrateActive = pathname === "/developer/calibrate";
   const validateActive = pathname === "/developer/validate";
+  const modelsActive = pathname === "/developer/models";
   const developerInitials = doctor ? getInitials(doctor.full_name) : "DR";
 
   useEffect(() => {
@@ -270,6 +298,15 @@ export default function DeveloperLayout({ title, subtitle, children }: Developer
             >
               <ValidateIcon />
               <span>Validate Your Calibration</span>
+            </Link>
+            <Link
+              to="/developer/models"
+              className={`developer-nav-item${modelsActive ? " developer-nav-item--active" : ""}`}
+              aria-current={modelsActive ? "page" : undefined}
+              title={collapsed ? "Calibrated Models" : undefined}
+            >
+              <ModelsIcon />
+              <span>Calibrated Models</span>
             </Link>
           </nav>
         </div>

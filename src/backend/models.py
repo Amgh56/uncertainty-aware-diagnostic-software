@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 
 from sqlalchemy import (
+    Boolean,
     Column,
     DateTime,
     Float,
@@ -14,7 +15,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import relationship
 
 from database import Base
-from enums import JobStatus, UserRole
+from enums import JobStatus, ModelVisibility, UserRole
 
 
 class Doctor(Base):
@@ -37,6 +38,7 @@ class Doctor(Base):
     patients = relationship("Patient", back_populates="doctor")
     predictions = relationship("Prediction", back_populates="doctor")
     calibration_jobs = relationship("CalibrationJob", back_populates="developer")
+    published_models = relationship("PublishedModel", back_populates="developer")
 
 
 class Patient(Base):
@@ -78,14 +80,16 @@ class Prediction(Base):
     alpha = Column(Float, nullable=False)
     lamhat = Column(Float, nullable=False)
     findings_json = Column(Text, nullable=False)
+    published_model_id = Column(
+        String(36), ForeignKey("published_models.id"), nullable=True
+    )
     created_at = Column(
         DateTime, nullable=False, default=lambda: datetime.now(timezone.utc)
     )
 
     patient = relationship("Patient", back_populates="predictions")
     doctor = relationship("Doctor", back_populates="predictions")
-
-
+    published_model = relationship("PublishedModel", back_populates="predictions")
 
 
 class CalibrationJob(Base):
@@ -94,18 +98,90 @@ class CalibrationJob(Base):
         Index("ix_calib_job_developer", "developer_id"),
     )
 
-    id = Column(String(36), primary_key=True)          
+    id = Column(String(36), primary_key=True)
     developer_id = Column(Integer, ForeignKey("doctors.id"), nullable=False)
     status = Column(String(20), nullable=False, default=JobStatus.QUEUED.value)
     model_filename = Column(String(255), nullable=False)
-    config_filename = Column(String(255), nullable=True)  
+    config_filename = Column(String(255), nullable=True)
     dataset_filename = Column(String(255), nullable=False)
     alpha = Column(Float, nullable=False, default=0.1)
-    result_json = Column(Text, nullable=True)           
+    result_json = Column(Text, nullable=True)
     error_message = Column(Text, nullable=True)
+    validation_verdict = Column(String(20), nullable=True)
+    is_published = Column(Boolean, nullable=False, default=False, server_default="0")
     created_at = Column(
         DateTime, nullable=False, default=lambda: datetime.now(timezone.utc)
     )
     completed_at = Column(DateTime, nullable=True)
 
     developer = relationship("Doctor", back_populates="calibration_jobs")
+    published_model = relationship(
+        "PublishedModel", back_populates="calibration_job", uselist=False
+    )
+
+
+class PublishedModel(Base):
+    __tablename__ = "published_models"
+    __table_args__ = (
+        Index("ix_pub_model_visibility_active", "visibility", "is_active"),
+        Index("ix_pub_model_developer", "developer_id"),
+        Index("ix_pub_model_modality", "modality"),
+    )
+
+    id = Column(String(36), primary_key=True)
+    calibration_job_id = Column(
+        String(36), ForeignKey("calibration_jobs.id"), unique=True, nullable=False
+    )
+    developer_id = Column(Integer, ForeignKey("doctors.id"), nullable=False)
+
+    # Identity
+    name = Column(String(150), nullable=False)
+    description = Column(Text, nullable=False)
+    version = Column(String(20), nullable=False)
+
+    # Classification
+    modality = Column(String(100), nullable=False)
+    intended_use = Column(Text, nullable=False)
+
+    # Technical package
+    artifact_path = Column(String(500), nullable=False)
+    artifact_type = Column(String(20), nullable=False, default="pytorch")
+    config_json = Column(Text, nullable=True)
+    labels_json = Column(Text, nullable=False)
+    num_labels = Column(Integer, nullable=False)
+
+    # Calibration outputs
+    alpha = Column(Float, nullable=False)
+    lamhat = Column(Float, nullable=False)
+    lamhat_result_json = Column(Text, nullable=True)
+
+    # Validation outputs
+    validation_verdict = Column(String(20), nullable=False)
+    validation_metrics_json = Column(Text, nullable=True)
+
+    # Visibility & release
+    visibility = Column(
+        String(30),
+        nullable=False,
+        default=ModelVisibility.PRIVATE.value,
+    )
+    is_active = Column(Boolean, nullable=False, default=True, server_default="1")
+
+    # Consent
+    consent_given_at = Column(DateTime, nullable=True)
+    consent_text_hash = Column(String(64), nullable=True)
+
+    # Timestamps
+    created_at = Column(
+        DateTime, nullable=False, default=lambda: datetime.now(timezone.utc)
+    )
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+
+    developer = relationship("Doctor", back_populates="published_models")
+    calibration_job = relationship("CalibrationJob", back_populates="published_model")
+    predictions = relationship("Prediction", back_populates="published_model")

@@ -12,6 +12,7 @@ import PredictionDetail from "./clinician/PredictionDetail";
 import DeveloperDashboard from "./developer/DeveloperDashboard";
 import DeveloperHowToPage from "./developer/DeveloperHowToPage";
 import ValidateCalibrationPage from "./developer/ValidateCalibrationPage";
+import ModelLibraryPage from "./developer/ModelLibraryPage";
 import LandingPage from "./landing/LandingPage";
 import "./styles/diagnostic-dashboard.css";
 import "./styles/auth.css";
@@ -46,6 +47,9 @@ export default function App() {
           } />
           <Route path="/developer/validate" element={
             <DeveloperRoute><ValidateCalibrationPage /></DeveloperRoute>
+          } />
+          <Route path="/developer/models" element={
+            <DeveloperRoute><ModelLibraryPage /></DeveloperRoute>
           } />
           <Route path="/" element={<LandingPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />

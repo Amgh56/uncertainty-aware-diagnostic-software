@@ -14,6 +14,31 @@ export interface Finding {
   in_prediction_set: boolean;
 }
 
+export interface ModelInfo {
+  id: string;
+  name: string;
+  version: string;
+  modality: string;
+  num_labels: number;
+  validation_verdict: string;
+}
+
+export interface ClinicianModel {
+  id: string;
+  name: string;
+  description: string;
+  version: string;
+  modality: string;
+  num_labels: number;
+  alpha: number;
+  lamhat: number;
+  validation_verdict: string;
+  visibility: string;
+  is_active: boolean;
+  developer_name: string | null;
+  created_at: string;
+}
+
 export interface PredictionResponse {
   id: number;
   patient: Patient;
@@ -25,6 +50,7 @@ export interface PredictionResponse {
   coverage: number;
   alpha: number;
   lamhat: number;
+  model_info: ModelInfo | null;
   created_at: string;
 }
 
@@ -52,10 +78,18 @@ function authHeaders(token: string): Record<string, string> {
   return { Authorization: `Bearer ${token}` };
 }
 
-export async function predictImage(file: File, patientId: number, token: string): Promise<PredictionResponse> {
+export async function predictImage(
+  file: File,
+  patientId: number,
+  token: string,
+  modelId?: string,
+): Promise<PredictionResponse> {
   const formData = new FormData();
   formData.append("file", file);
   formData.append("patient_id", String(patientId));
+  if (modelId) {
+    formData.append("model_id", modelId);
+  }
 
   const response = await fetch(`${API_URL}/predict`, {
     method: "POST",
@@ -68,6 +102,17 @@ export async function predictImage(file: File, patientId: number, token: string)
     throw new Error(message);
   }
 
+  return response.json();
+}
+
+export async function listClinicianModels(token: string): Promise<{ models: ClinicianModel[] }> {
+  const response = await fetch(`${API_URL}/models/clinician`, {
+    headers: authHeaders(token),
+  });
+  if (!response.ok) {
+    const message = await parseError(response);
+    throw new Error(message);
+  }
   return response.json();
 }
 

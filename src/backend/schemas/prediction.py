@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Optional
 
 from pydantic import BaseModel, Field
 
@@ -13,6 +14,16 @@ class FindingItem(BaseModel):
     in_prediction_set: bool
 
 
+class ModelInfoSummary(BaseModel):
+    """Summary of the published model used for a prediction."""
+    id: str
+    name: str
+    version: str
+    modality: str
+    num_labels: int
+    validation_verdict: str
+
+
 class PredictionResponse(BaseModel):
     """Prediction result from chest X-ray inference."""
     id: int
@@ -25,6 +36,7 @@ class PredictionResponse(BaseModel):
     alpha: float
     lamhat: float
     findings: list[FindingItem]
+    model_info: Optional[ModelInfoSummary] = None
     created_at: datetime
 
     class Config:

@@ -567,7 +567,14 @@ def get_validation_data(job_id: str, developer: Doctor, db: Session) -> dict:
         )
 
     probs, labels, pos_mask, label_names = artifacts
-    return _compute_validation_sweep(probs, labels, pos_mask, label_names, job.alpha)
+    result = _compute_validation_sweep(probs, labels, pos_mask, label_names, job.alpha)
+
+    # Persist verdict on the job if not already set
+    if job.validation_verdict != result["verdict"]:
+        job.validation_verdict = result["verdict"]
+        db.commit()
+
+    return result
 
 
 def regenerate_validation_artifacts(job_id: str, developer: Doctor, db: Session) -> dict:
