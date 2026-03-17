@@ -54,6 +54,34 @@ function PatientIcon() {
   );
 }
 
+function ModelsIcon() {
+  return (
+    <svg className="clinician-nav-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M12 2L2 7L12 12L22 7L12 2Z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M2 17L12 22L22 17"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M2 12L12 17L22 12"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 function LogoutIcon() {
   return (
     <svg className="clinician-nav-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -127,6 +155,7 @@ export default function ClinicianLayout({ title, subtitle, children }: Clinician
 
   const dashboardActive = pathname === "/home" || pathname.startsWith("/predictions/");
   const newPatientActive = pathname === "/dashboard";
+  const modelsActive = pathname === "/models";
   const doctorInitials = doctor ? getInitials(doctor.full_name) : "DR";
 
   useEffect(() => {
@@ -223,6 +252,15 @@ export default function ClinicianLayout({ title, subtitle, children }: Clinician
             >
               <PatientIcon />
               <span>New Patient</span>
+            </Link>
+            <Link
+              to="/models"
+              className={`clinician-nav-item${modelsActive ? " clinician-nav-item--active" : ""}`}
+              aria-current={modelsActive ? "page" : undefined}
+              title={collapsed ? "Calibrated Models" : undefined}
+            >
+              <ModelsIcon />
+              <span>Calibrated Models</span>
             </Link>
           </nav>
         </div>
