@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { tocItems } from "./DeveloperHowToPage";
 
 interface DeveloperLayoutProps {
   title: string;
   subtitle: string;
   children: ReactNode;
+  activeSection?: string;
 }
 
 function PulseIcon() {
@@ -183,7 +185,7 @@ function HamburgerIcon() {
   );
 }
 
-export default function DeveloperLayout({ title, subtitle, children }: DeveloperLayoutProps) {
+export default function DeveloperLayout({ title, subtitle, children, activeSection }: DeveloperLayoutProps) {
   const { pathname } = useLocation();
   const { doctor, logout } = useAuth();
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem("developer-sidebar-collapsed") === "1");
@@ -272,15 +274,34 @@ export default function DeveloperLayout({ title, subtitle, children }: Developer
         <div className="developer-nav-section">
           <p className="developer-nav-heading">Workspace</p>
           <nav className="developer-nav" aria-label="Developer navigation">
-            <Link
-              to="/developer/how-to-calibrate"
-              className={`developer-nav-item${guideActive ? " developer-nav-item--active" : ""}`}
-              aria-current={guideActive ? "page" : undefined}
-              title={collapsed ? "How to Calibrate Your Model" : undefined}
-            >
-              <GuideIcon />
-              <span>How to Calibrate Your Model</span>
-            </Link>
+            <div className="developer-nav-group">
+              <Link
+                to="/developer/how-to-calibrate"
+                className={`developer-nav-item${guideActive ? " developer-nav-item--active" : ""}`}
+                aria-current={guideActive ? "page" : undefined}
+                title={collapsed ? "Developer Guide" : undefined}
+              >
+                <GuideIcon />
+                <span>Developer Guide</span>
+              </Link>
+              {guideActive && !collapsed && (
+                <div className="developer-toc-dropdown">
+                  {tocItems.map((item) => (
+                    <a
+                      key={item.id}
+                      href={`#${item.id}`}
+                      className={`developer-toc-item${activeSection === item.id ? " developer-toc-item--active" : ""}`}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        document.getElementById(item.id)?.scrollIntoView({ behavior: "smooth" });
+                      }}
+                    >
+                      {item.label}
+                    </a>
+                  ))}
+                </div>
+              )}
+            </div>
             <Link
               to="/developer/calibrate"
               className={`developer-nav-item${calibrateActive ? " developer-nav-item--active" : ""}`}

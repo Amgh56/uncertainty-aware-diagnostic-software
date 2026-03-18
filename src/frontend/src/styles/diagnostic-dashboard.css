@@ -1020,6 +1020,354 @@ body {
   background: linear-gradient(135deg, rgba(15, 118, 110, 0.08) 0%, rgba(255, 255, 255, 0.95) 60%);
 }
 
+/* ── Sidebar TOC dropdown ── */
+
+.developer-nav-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.developer-toc-dropdown {
+  display: flex;
+  flex-direction: column;
+  margin-left: 32px;
+  padding: 6px 0 2px;
+  border-left: 2px solid #e2e8f0;
+}
+
+.developer-toc-item {
+  padding: 5px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #64748b;
+  text-decoration: none;
+  border-left: 2px solid transparent;
+  margin-left: -2px;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.developer-toc-item:hover {
+  color: #0f172a;
+}
+
+.developer-toc-item--active {
+  color: #2563eb;
+  border-left-color: #2563eb;
+  font-weight: 600;
+}
+
+/* ── Tutorial card (How To page) ── */
+
+.guide-tutorial-card {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 36px 40px 32px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 24px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
+}
+
+.guide-tutorial-header {
+  margin-bottom: 32px;
+}
+
+.guide-tutorial-badges {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.guide-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.guide-badge--dev {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.guide-badge--time {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #f1f5f9;
+  color: #64748b;
+  text-transform: none;
+}
+
+.guide-tutorial-divider {
+  border: none;
+  border-top: 1px solid #e2e8f0;
+  margin: 32px 0;
+}
+
+.guide-tutorial-section {
+  scroll-margin-top: 24px;
+}
+
+.guide-tutorial-section-title {
+  margin: 0 0 14px;
+  font-size: 22px;
+  font-weight: 700;
+  color: #0f172a;
+  letter-spacing: -0.03em;
+}
+
+.guide-tutorial-text {
+  margin: 0 0 14px;
+  font-size: 15px;
+  line-height: 1.75;
+  color: #334155;
+}
+
+.guide-tutorial-text:last-child {
+  margin-bottom: 0;
+}
+
+/* ── Diagram ── */
+
+.guide-diagram {
+  margin-top: 24px;
+  padding: 24px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+}
+
+.guide-diagram-flow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.guide-diagram-node {
+  padding: 10px 18px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  text-align: center;
+}
+
+.guide-diagram-node--brand {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+}
+
+.guide-diagram-node--success {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+}
+
+.guide-diagram-node-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.guide-diagram-arrow {
+  font-size: 20px;
+  color: #94a3b8;
+  font-weight: 300;
+}
+
+.guide-diagram-explainers {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.guide-diagram-box {
+  padding: 14px 16px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+}
+
+.guide-diagram-box h4 {
+  margin: 0 0 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.guide-diagram-box p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #64748b;
+}
+
+/* ── Quick start steps ── */
+
+.guide-quick-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin-top: 8px;
+}
+
+.guide-quick-step {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  padding: 16px 0;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.guide-quick-step:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.guide-quick-step-number {
+  flex-shrink: 0;
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #2563eb;
+  font-size: 14px;
+  font-weight: 800;
+  margin-top: 2px;
+}
+
+.guide-quick-step-title {
+  margin: 0 0 4px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.guide-quick-step-text {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.7;
+  color: #64748b;
+}
+
+.guide-quick-step-text code {
+  font-size: 13px;
+  background: #f1f5f9;
+  padding: 1px 5px;
+  border-radius: 4px;
+  color: #334155;
+}
+
+/* ── Tips grid ── */
+
+.guide-tips-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  margin-top: 10px;
+}
+
+.guide-tip-card {
+  padding: 22px 24px;
+  background: #f8faff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+}
+
+.guide-tip-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.guide-tip-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  background: #eff6ff;
+  flex-shrink: 0;
+}
+
+.guide-tip-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.guide-tip-text {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.7;
+  color: #64748b;
+}
+
+/* ── CTA ── */
+
+.guide-tutorial-cta {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.guide-tutorial-cta-text {
+  margin: 0;
+  font-size: 14px;
+  color: #64748b;
+  line-height: 1.6;
+}
+
+.guide-tutorial-cta-link {
+  color: #2563eb;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.guide-tutorial-cta-link:hover {
+  text-decoration: underline;
+}
+
+/* ── Tutorial responsive ── */
+
+@media (max-width: 760px) {
+  .guide-tutorial-card {
+    padding: 24px 20px;
+    border-radius: 20px;
+  }
+
+  .guide-tips-grid,
+  .guide-diagram-explainers {
+    grid-template-columns: 1fr;
+  }
+
+  .guide-diagram-flow {
+    flex-direction: column;
+  }
+
+  .guide-diagram-arrow {
+    transform: rotate(90deg);
+  }
+
+  .guide-tutorial-cta {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
 @media (min-width: 1041px) {
   .clinician-layout--collapsed .clinician-sidebar {
     width: 102px;

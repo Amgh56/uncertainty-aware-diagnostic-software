@@ -88,13 +88,13 @@ img002.jpg,0,1,1`}</pre>
   "use_equalizeHist": true
 }`}</pre>
         <table className="dev-req-table">
-          <thead><tr><th>Field</th><th>Required</th><th>Description</th></tr></thead>
+          <thead><tr><th>Field</th><th>Required</th></tr></thead>
           <tbody>
-            <tr><td><code>width</code></td><td>Yes</td><td>Resize width (px)</td></tr>
-            <tr><td><code>height</code></td><td>Yes</td><td>Resize height (px)</td></tr>
-            <tr><td><code>pixel_mean</code></td><td>Yes</td><td>Pixel mean for normalisation</td></tr>
-            <tr><td><code>pixel_std</code></td><td>Yes</td><td>Pixel std for normalisation</td></tr>
-            <tr><td><code>use_equalizeHist</code></td><td>No</td><td>Apply histogram equalisation (default: false)</td></tr>
+            <tr><td><code>width</code></td><td>Yes</td></tr>
+            <tr><td><code>height</code></td><td>Yes</td></tr>
+            <tr><td><code>pixel_mean</code></td><td>Yes</td></tr>
+            <tr><td><code>pixel_std</code></td><td>Yes</td></tr>
+            <tr><td><code>use_equalizeHist</code></td><td>No</td></tr>
           </tbody>
         </table>
       </div>
