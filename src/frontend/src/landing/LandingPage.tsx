@@ -291,8 +291,8 @@ export default function LandingPage() {
               <div className="landing-step-connector" />
               <h3 className="landing-step-title">Upload Case</h3>
               <p className="landing-step-text">
-                The clinician uploads a patient chest X-ray image into SafeDx. The interface
-                is simple — select a patient, attach the image, and submit.
+                The clinician selects a calibrated model, uploads a medical image, and submits
+                the case. SafeDx supports any image type as long as a matching model is available.
               </p>
             </div>
             <div className="landing-step">
@@ -311,24 +311,6 @@ export default function LandingPage() {
                 The clinician reviews each finding, its probability, and whether it falls
                 inside the prediction set — then makes an informed clinical decision.
               </p>
-            </div>
-          </div>
-          <div className="landing-clinician-features">
-            <div className="landing-clinician-feat">
-              <ShieldCheck size={18} />
-              <span>Uncertainty-aware predictions</span>
-            </div>
-            <div className="landing-clinician-feat">
-              <Eye size={18} />
-              <span>Visual diagnostic support</span>
-            </div>
-            <div className="landing-clinician-feat">
-              <ClipboardCheck size={18} />
-              <span>Patient-centered case review</span>
-            </div>
-            <div className="landing-clinician-feat">
-              <BarChart3 size={18} />
-              <span>Clear confidence indicators</span>
             </div>
           </div>
         </div>
