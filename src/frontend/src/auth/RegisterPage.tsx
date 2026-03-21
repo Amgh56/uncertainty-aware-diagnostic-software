@@ -49,8 +49,12 @@ export default function RegisterPage() {
     setError(null);
     setSubmitting(true);
     try {
-      await register(email, password, fullName, role);
-      navigate(role === "developer" ? "/developer" : "/home", { replace: true });
+      const result = await register(email, password, fullName, role);
+      if (result.is_verified === false) {
+        navigate("/verify-email", { state: { email, role }, replace: true });
+      } else {
+        navigate(role === "developer" ? "/developer" : "/home", { replace: true });
+      }
     } catch (err) {
       setError((err as Error).message);
     } finally {

@@ -18,8 +18,12 @@ export default function LoginPage() {
     setError(null);
     setSubmitting(true);
     try {
-      const { access_token } = await login(email, password);
-      const me = await fetchCurrentUser(access_token);
+      const result = await login(email, password);
+      if (result.is_verified === false) {
+        navigate("/verify-email", { state: { email }, replace: true });
+        return;
+      }
+      const me = await fetchCurrentUser(result.access_token);
       navigate(me.role === "developer" ? "/developer" : "/home", { replace: true });
     } catch (err) {
       setError((err as Error).message);

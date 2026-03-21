@@ -31,6 +31,11 @@ class Doctor(Base):
         default=UserRole.CLINICIAN.value,
         server_default=UserRole.CLINICIAN.value,
     )
+    is_verified = Column(Boolean, nullable=False, default=False, server_default="0")
+    otp_code = Column(String(64), nullable=True)
+    otp_expires_at = Column(DateTime, nullable=True)
+    otp_attempts = Column(Integer, nullable=False, default=0, server_default="0")
+    otp_last_sent_at = Column(DateTime, nullable=True)
     created_at = Column(
         DateTime, nullable=False, default=lambda: datetime.now(timezone.utc)
     )

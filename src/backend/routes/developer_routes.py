@@ -55,8 +55,19 @@ router = APIRouter(tags=["Developer"])
         },
     },
 )
-def register_developer(body: DeveloperRegisterRequest, db: Session = Depends(get_db)):
-    return register_doctor(body.email, body.password, body.full_name, db, role=UserRole.DEVELOPER)
+async def register_developer(
+    body: DeveloperRegisterRequest,
+    db: Session = Depends(get_db),
+):
+    from mail import send_otp_email
+
+    result = register_doctor(body.email, body.password, body.full_name, db, role=UserRole.DEVELOPER)
+    if result.get("otp"):
+        await send_otp_email(result["email"], result["otp"], result["full_name"])
+    return TokenResponse(
+        access_token=result["access_token"],
+        is_verified=result["is_verified"],
+    )
 
 
 @router.post(

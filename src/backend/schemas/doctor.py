@@ -17,6 +17,7 @@ class DoctorLoginRequest(BaseModel):
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
+    is_verified: bool = True
 
 
 class DoctorResponse(BaseModel):
@@ -24,6 +25,7 @@ class DoctorResponse(BaseModel):
     email: str
     full_name: str
     role: UserRole = Field(..., examples=["clinician"])
+    is_verified: bool = True
 
     class Config:
         from_attributes = True
@@ -44,3 +46,12 @@ class ResetPasswordRequest(BaseModel):
     token: str = Field(..., examples=["abc123..."])
     timestamp: int = Field(..., examples=[1700000000])
     new_password: str = Field(..., min_length=6, examples=["newSecurePass1"])
+
+
+class VerifyOtpRequest(BaseModel):
+    email: str = Field(..., examples=["doctor@hospital.com"])
+    otp: str = Field(..., min_length=6, max_length=6, examples=["123456"])
+
+
+class ResendOtpRequest(BaseModel):
+    email: str = Field(..., examples=["doctor@hospital.com"])

@@ -48,6 +48,12 @@
   margin-bottom: 16px;
 }
 
+.landing-badge--no-uppercase {
+  text-transform: none;
+  font-size: 14px;
+  letter-spacing: normal;
+}
+
 .landing-badge--dark {
   color: #5eead4;
   background: rgba(94, 234, 212, 0.1);

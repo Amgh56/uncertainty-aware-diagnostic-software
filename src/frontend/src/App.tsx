@@ -6,6 +6,7 @@ import LoginPage from "./auth/LoginPage";
 import RegisterPage from "./auth/RegisterPage";
 import ForgotPasswordPage from "./auth/ForgotPasswordPage";
 import ResetPasswordPage from "./auth/ResetPasswordPage";
+import VerifyEmailPage from "./auth/VerifyEmailPage";
 import HomePage from "./clinician/HomePage";
 import DiagnosticDashboard from "./clinician/DiagnosticDashboard";
 import PredictionDetail from "./clinician/PredictionDetail";
@@ -28,6 +29,7 @@ export default function App() {
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
+          <Route path="/verify-email" element={<VerifyEmailPage />} />
           <Route path="/home" element={
             <ProtectedRoute><HomePage /></ProtectedRoute>
           } />

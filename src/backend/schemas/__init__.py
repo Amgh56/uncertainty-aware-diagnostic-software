@@ -7,8 +7,10 @@ from schemas.doctor import (
     DoctorRegisterRequest,
     DoctorResponse,
     ForgotPasswordRequest,
+    ResendOtpRequest,
     ResetPasswordRequest,
     TokenResponse,
+    VerifyOtpRequest,
 )
 from schemas.developer import (
     JobCreateResponse,
@@ -46,8 +48,10 @@ __all__ = [
     "DoctorRegisterRequest",
     "DoctorResponse",
     "ForgotPasswordRequest",
+    "ResendOtpRequest",
     "ResetPasswordRequest",
     "TokenResponse",
+    "VerifyOtpRequest",
     "JobCreateResponse",
     "JobListResponse",
     "JobStatusResponse",

@@ -1,9 +1,11 @@
-"""Business logic for doctor registration, login, and password reset."""
+"""Business logic for doctor registration, login, password reset, and email OTP verification."""
 
-import hmac
 import hashlib
+import hmac
 import os
+import secrets
 import time
+from datetime import datetime, timedelta, timezone
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
@@ -15,6 +17,9 @@ from schemas import TokenResponse
 
 _ENC_SECRET = os.getenv("ENC_SECRET_KEY", "change-me")
 _TOKEN_TTL_SECONDS = 30 * 60  # 30 minutes
+_OTP_TTL_SECONDS = 10 * 60  # 10 minutes
+_OTP_MAX_ATTEMPTS = 5
+_OTP_RESEND_COOLDOWN_SECONDS = 60
 
 
 def _make_reset_token(email: str, timestamp: int) -> str:
@@ -37,13 +42,23 @@ def verify_reset_token(email: str, token: str, timestamp: int) -> bool:
     return hmac.compare_digest(expected, token)
 
 
+def _generate_otp() -> str:
+    """Generate a random 6-digit OTP."""
+    return f"{secrets.randbelow(1_000_000):06d}"
+
+
+def _hash_otp(otp: str) -> str:
+    """Hash OTP with SHA-256 for secure storage."""
+    return hashlib.sha256(otp.encode()).hexdigest()
+
+
 def register_doctor(
     email: str,
     password: str,
     full_name: str,
     db: Session,
     role: UserRole = UserRole.CLINICIAN,
-) -> TokenResponse:
+) -> dict:
     if len(password) < 6:
         raise HTTPException(
             status_code=400, detail="Password must be at least 6 characters"
@@ -55,21 +70,36 @@ def register_doctor(
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
 
+    otp = _generate_otp()
+    now = datetime.now(timezone.utc)
+
     doctor = Doctor(
         email=email.lower().strip(),
         hashed_password=hash_password(password),
         full_name=full_name.strip(),
         role=role.value,
+        is_verified=False,
+        otp_code=_hash_otp(otp),
+        otp_expires_at=now + timedelta(seconds=_OTP_TTL_SECONDS),
+        otp_attempts=0,
+        otp_last_sent_at=now,
     )
     db.add(doctor)
     db.commit()
     db.refresh(doctor)
 
     token = create_access_token(doctor.id)
-    return TokenResponse(access_token=token)
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "is_verified": False,
+        "otp": otp,
+        "email": doctor.email,
+        "full_name": doctor.full_name,
+    }
 
 
-def login_doctor(email: str, password: str, db: Session) -> TokenResponse:
+def login_doctor(email: str, password: str, db: Session) -> dict:
     doctor = (
         db.query(Doctor).filter(Doctor.email == email.lower().strip()).first()
     )
@@ -77,7 +107,110 @@ def login_doctor(email: str, password: str, db: Session) -> TokenResponse:
         raise HTTPException(status_code=401, detail="Invalid email or password")
 
     token = create_access_token(doctor.id)
-    return TokenResponse(access_token=token)
+
+    # If unverified, generate a fresh OTP so the email can be sent
+    otp = None
+    if not doctor.is_verified:
+        otp = _generate_otp()
+        now = datetime.now(timezone.utc)
+        doctor.otp_code = _hash_otp(otp)
+        doctor.otp_expires_at = now + timedelta(seconds=_OTP_TTL_SECONDS)
+        doctor.otp_attempts = 0
+        doctor.otp_last_sent_at = now
+        db.commit()
+
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "is_verified": doctor.is_verified,
+        "otp": otp,
+        "email": doctor.email,
+        "full_name": doctor.full_name,
+    }
+
+
+def verify_email_otp(email: str, otp: str, db: Session) -> dict:
+    doctor = db.query(Doctor).filter(Doctor.email == email.lower().strip()).first()
+    if not doctor:
+        raise HTTPException(status_code=400, detail="Invalid email")
+
+    if doctor.is_verified:
+        return {"detail": "Email already verified"}
+
+    if doctor.otp_attempts >= _OTP_MAX_ATTEMPTS:
+        raise HTTPException(
+            status_code=429,
+            detail="Too many attempts. Please request a new code.",
+        )
+
+    if not doctor.otp_code or not doctor.otp_expires_at:
+        raise HTTPException(
+            status_code=400,
+            detail="No verification code found. Please request a new code.",
+        )
+
+    now = datetime.now(timezone.utc)
+    expires = doctor.otp_expires_at
+    if expires.tzinfo is None:
+        expires = expires.replace(tzinfo=timezone.utc)
+    if now > expires:
+        raise HTTPException(
+            status_code=400,
+            detail="Verification code has expired. Please request a new code.",
+        )
+
+    if not hmac.compare_digest(_hash_otp(otp), doctor.otp_code):
+        doctor.otp_attempts += 1
+        db.commit()
+        remaining = _OTP_MAX_ATTEMPTS - doctor.otp_attempts
+        raise HTTPException(
+            status_code=400,
+            detail=f"Incorrect code. {remaining} attempt{'s' if remaining != 1 else ''} remaining.",
+        )
+
+    doctor.is_verified = True
+    doctor.otp_code = None
+    doctor.otp_expires_at = None
+    doctor.otp_attempts = 0
+    db.commit()
+
+    return {"detail": "Email verified successfully"}
+
+
+def resend_email_otp(email: str, db: Session) -> dict:
+    doctor = db.query(Doctor).filter(Doctor.email == email.lower().strip()).first()
+    if not doctor:
+        return {"detail": "If that email is registered, a new code has been sent.", "otp": None}
+
+    if doctor.is_verified:
+        raise HTTPException(status_code=400, detail="Email is already verified")
+
+    now = datetime.now(timezone.utc)
+    if doctor.otp_last_sent_at:
+        last_sent = doctor.otp_last_sent_at
+        if last_sent.tzinfo is None:
+            last_sent = last_sent.replace(tzinfo=timezone.utc)
+        elapsed = (now - last_sent).total_seconds()
+        if elapsed < _OTP_RESEND_COOLDOWN_SECONDS:
+            remaining = int(_OTP_RESEND_COOLDOWN_SECONDS - elapsed)
+            raise HTTPException(
+                status_code=429,
+                detail=f"Please wait {remaining} seconds before requesting a new code.",
+            )
+
+    otp = _generate_otp()
+    doctor.otp_code = _hash_otp(otp)
+    doctor.otp_expires_at = now + timedelta(seconds=_OTP_TTL_SECONDS)
+    doctor.otp_attempts = 0
+    doctor.otp_last_sent_at = now
+    db.commit()
+
+    return {
+        "detail": "A new verification code has been sent.",
+        "otp": otp,
+        "email": doctor.email,
+        "full_name": doctor.full_name,
+    }
 
 
 def forgot_password(email: str, db: Session) -> dict:

@@ -64,3 +64,59 @@ async def send_reset_email(to: str, reset_link: str) -> None:
     )
     fm = FastMail(conf)
     await fm.send_message(message)
+
+
+async def send_otp_email(to: str, otp: str, full_name: str) -> None:
+    digits = "".join(
+        f'<td style="width:48px;height:56px;text-align:center;font-size:28px;'
+        f'font-weight:700;color:#2563eb;background:#eff6ff;border:2px solid #dbeafe;'
+        f'border-radius:12px;font-family:monospace;">{d}</td>'
+        for d in otp
+    )
+
+    html = f"""
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+                max-width: 520px; margin: 0 auto; padding: 40px 24px; color: #0f172a;
+                text-align: center;">
+      <div style="margin-bottom: 32px; display: flex; align-items: center;
+                  justify-content: center; gap: 8px;">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none"
+             xmlns="http://www.w3.org/2000/svg">
+          <path d="M22 12H18L15 21L9 3L6 12H2"
+                stroke="#2563eb" stroke-width="2.5"
+                stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span style="font-size: 18px; font-weight: 700;">SafeDx</span>
+      </div>
+
+      <h1 style="font-size: 22px; font-weight: 700; margin: 0 0 8px;">
+        Verify your email address
+      </h1>
+      <p style="font-size: 14px; color: #64748b; line-height: 1.7; margin: 0 auto 28px; max-width: 420px;">
+        Hi {full_name}, welcome to SafeDx! Use the code below to verify your email address
+        and complete your registration.
+      </p>
+
+      <table style="margin: 0 auto 28px;" cellpadding="0" cellspacing="8">
+        <tr>{digits}</tr>
+      </table>
+
+      <p style="font-size: 13px; color: #64748b; margin: 0 0 8px;">
+        This code expires in <strong>10 minutes</strong>.
+      </p>
+
+      <p style="font-size: 12px; color: #94a3b8; margin-top: 32px; line-height: 1.6;">
+        If you did not create a SafeDx account, you can safely ignore this email.<br/><br/>
+        &mdash; The SafeDx Team
+      </p>
+    </div>
+    """
+
+    message = MessageSchema(
+        subject="Your SafeDx verification code",
+        recipients=[to],
+        body=html,
+        subtype=MessageType.html,
+    )
+    fm = FastMail(conf)
+    await fm.send_message(message)

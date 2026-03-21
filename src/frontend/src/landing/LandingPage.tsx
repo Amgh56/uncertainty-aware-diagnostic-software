@@ -184,10 +184,6 @@ export default function LandingPage() {
       {/* ═══ SECTION 2: HERO ═══ */}
       <section className="landing-hero">
         <div className="landing-hero-inner">
-          <span className="landing-hero-badge">
-            <span className="landing-hero-badge-dot" />
-            UNCERTAINTY-AWARE DIAGNOSTICS
-          </span>
           <h1 className="landing-hero-title">
             Medical AI You Can{" "}
             <span className="landing-hero-accent">Actually Trust</span>
@@ -230,7 +226,7 @@ export default function LandingPage() {
       <section className="landing-section" id="why-safedx">
         <div className="landing-section-inner">
           <div className="landing-section-header">
-            <span className="landing-badge">WHY SAFEDX</span>
+            <span className="landing-badge landing-badge--no-uppercase">Why SafeDx?</span>
             <h2 className="landing-heading">
               AI predictions are only useful when you can trust them
             </h2>
@@ -348,7 +344,7 @@ export default function LandingPage() {
         <div className="landing-section-inner">
           <div className="landing-about-grid">
             <div className="landing-about-copy">
-              <span className="landing-badge">ABOUT SAFEDX</span>
+              <span className="landing-badge landing-badge--no-uppercase">About SafeDx</span>
               <h2 className="landing-heading">Making uncertainty visible in medical AI</h2>
               <p className="landing-about-text">
                 SafeDx is a medical AI platform designed to make predictive uncertainty

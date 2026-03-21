@@ -3,6 +3,7 @@ import { API_URL } from "../../config";
 export interface TokenResponse {
   access_token: string;
   token_type: string;
+  is_verified?: boolean;
 }
 
 export interface Doctor {
@@ -10,6 +11,7 @@ export interface Doctor {
   email: string;
   full_name: string;
   role: string;
+  is_verified?: boolean;
 }
 
 async function parseError(response: Response, fallback: string): Promise<string> {
@@ -73,5 +75,39 @@ export async function fetchCurrentUser(token: string): Promise<Doctor> {
     headers: { Authorization: `Bearer ${token}` },
   });
   if (!res.ok) throw new Error("Invalid token");
+  return res.json();
+}
+
+export async function verifyEmailOtp(email: string, otp: string): Promise<{ detail: string }> {
+  let res: Response;
+  try {
+    res = await fetch(`${API_URL}/auth/verify-email-otp`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, otp }),
+    });
+  } catch {
+    throw new Error(networkError());
+  }
+  if (!res.ok) {
+    throw new Error(await parseError(res, "Verification failed"));
+  }
+  return res.json();
+}
+
+export async function resendEmailOtp(email: string): Promise<{ detail: string }> {
+  let res: Response;
+  try {
+    res = await fetch(`${API_URL}/auth/resend-email-otp`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+  } catch {
+    throw new Error(networkError());
+  }
+  if (!res.ok) {
+    throw new Error(await parseError(res, "Resend failed"));
+  }
   return res.json();
 }

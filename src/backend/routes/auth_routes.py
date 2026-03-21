@@ -1,11 +1,11 @@
-"""Auth route handlers: register, login, me, forgot/reset password."""
+"""Auth route handlers: register, login, me, forgot/reset password, email OTP verification."""
 
-from fastapi import APIRouter, BackgroundTasks, Depends
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from auth import get_current_doctor
 from database import get_db
-from mail import send_reset_email
+from mail import send_otp_email, send_reset_email
 from models import Doctor
 from schemas import (
     DoctorLoginRequest,
@@ -13,10 +13,19 @@ from schemas import (
     DoctorResponse,
     ErrorResponse,
     ForgotPasswordRequest,
+    ResendOtpRequest,
     ResetPasswordRequest,
     TokenResponse,
+    VerifyOtpRequest,
 )
-from services.auth_service import forgot_password, login_doctor, register_doctor, reset_password
+from services.auth_service import (
+    forgot_password,
+    login_doctor,
+    register_doctor,
+    resend_email_otp,
+    reset_password,
+    verify_email_otp,
+)
 
 router = APIRouter(tags=["Auth"])
 
@@ -26,7 +35,7 @@ router = APIRouter(tags=["Auth"])
     response_model=TokenResponse,
     summary="Register a new doctor",
     description="Create a new doctor account and return a JWT access token. "
-    "Password must be at least 6 characters.",
+    "Password must be at least 6 characters. Account starts unverified.",
     responses={
         200: {"description": "Registration successful, JWT token returned"},
         400: {
@@ -36,8 +45,17 @@ router = APIRouter(tags=["Auth"])
         422: {"description": "Request body validation error"},
     },
 )
-def register(body: DoctorRegisterRequest, db: Session = Depends(get_db)):
-    return register_doctor(body.email, body.password, body.full_name, db)
+async def register(
+    body: DoctorRegisterRequest,
+    db: Session = Depends(get_db),
+):
+    result = register_doctor(body.email, body.password, body.full_name, db)
+    if result.get("otp"):
+        await send_otp_email(result["email"], result["otp"], result["full_name"])
+    return TokenResponse(
+        access_token=result["access_token"],
+        is_verified=result["is_verified"],
+    )
 
 
 @router.post(
@@ -53,8 +71,48 @@ def register(body: DoctorRegisterRequest, db: Session = Depends(get_db)):
         },
     },
 )
-def login(body: DoctorLoginRequest, db: Session = Depends(get_db)):
-    return login_doctor(body.email, body.password, db)
+async def login(
+    body: DoctorLoginRequest,
+    db: Session = Depends(get_db),
+):
+    result = login_doctor(body.email, body.password, db)
+    if result.get("otp"):
+        await send_otp_email(result["email"], result["otp"], result["full_name"])
+    return TokenResponse(
+        access_token=result["access_token"],
+        is_verified=result["is_verified"],
+    )
+
+
+@router.post(
+    "/auth/verify-email-otp",
+    summary="Verify email with OTP code",
+    responses={
+        200: {"description": "Email verified successfully"},
+        400: {"model": ErrorResponse, "description": "Invalid or expired code"},
+        429: {"model": ErrorResponse, "description": "Too many attempts"},
+    },
+)
+def verify_otp_route(body: VerifyOtpRequest, db: Session = Depends(get_db)):
+    return verify_email_otp(body.email, body.otp, db)
+
+
+@router.post(
+    "/auth/resend-email-otp",
+    summary="Resend email verification OTP",
+    responses={
+        200: {"description": "New code sent"},
+        429: {"model": ErrorResponse, "description": "Cooldown active"},
+    },
+)
+async def resend_otp_route(
+    body: ResendOtpRequest,
+    db: Session = Depends(get_db),
+):
+    result = resend_email_otp(body.email, db)
+    if result.get("otp"):
+        await send_otp_email(result["email"], result["otp"], result["full_name"])
+    return {"detail": result["detail"]}
 
 
 @router.post(
@@ -64,7 +122,6 @@ def login(body: DoctorLoginRequest, db: Session = Depends(get_db)):
 )
 async def forgot_password_route(
     body: ForgotPasswordRequest,
-    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
 ):
     result = forgot_password(body.email, db)
@@ -77,7 +134,7 @@ async def forgot_password_route(
             f"&token={result['token']}"
             f"&ts={result['timestamp']}"
         )
-        background_tasks.add_task(send_reset_email, result["email"], reset_link)
+        await send_reset_email(result["email"], reset_link)
 
     # Always return the same message — never reveal if email exists
     return {"detail": "If that email is registered you will receive a reset link shortly."}
