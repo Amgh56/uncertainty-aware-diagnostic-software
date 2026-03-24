@@ -27,12 +27,12 @@ from routes.model_routes import router as model_router
 tags_metadata = [
     {
         "name": "Auth",
-        "description": "Doctor registration, login, and profile endpoints. "
+        "description": "User registration, login, and profile endpoints. "
         "All authenticated endpoints require a Bearer token in the Authorization header.",
     },
     {
         "name": "Patients",
-        "description": "Create and list patients. Each patient is scoped to the authenticated doctor.",
+        "description": "Create and list patients. Each patient is scoped to the authenticated user.",
     },
     {
         "name": "Predictions",

@@ -6,7 +6,7 @@ from typing import Optional
 from fastapi import HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
-from models import Doctor, Patient, Prediction, PublishedModel
+from models import User, Patient, Prediction, PublishedModel
 from schemas import HistoryItem, HistoryResponse
 from services.ml_service import ml_state
 
@@ -27,14 +27,14 @@ def create_prediction(
     file: UploadFile,
     img_bytes: bytes,
     patient_id: int,
-    doctor: Doctor,
+    user: User,
     db: Session,
     model_id: Optional[str] = None,
 ) -> dict:
     """Validate patient, upload image, run inference, persist, return result."""
     patient = (
         db.query(Patient)
-        .filter(Patient.id == patient_id, Patient.doctor_id == doctor.id)
+        .filter(Patient.id == patient_id, Patient.user_id == user.id)
         .first()
     )
     if not patient:
@@ -42,7 +42,7 @@ def create_prediction(
 
     image_url = ml_state.upload_xray(
         img_bytes,
-        doctor.id,
+        user.id,
         file.filename or "upload.png",
         file.content_type or "image/png",
     )
@@ -76,7 +76,7 @@ def create_prediction(
 
     prediction = Prediction(
         patient_id=patient.id,
-        doctor_id=doctor.id,
+        user_id=user.id,
         image_path=image_url,
         top_finding=top["finding"],
         top_probability=top["probability"],
@@ -119,11 +119,11 @@ def create_prediction(
     }
 
 
-def get_history(doctor: Doctor, db: Session) -> HistoryResponse:
+def get_history(user: User, db: Session) -> HistoryResponse:
     rows = (
         db.query(Prediction, Patient)
         .join(Patient, Prediction.patient_id == Patient.id)
-        .filter(Prediction.doctor_id == doctor.id)
+        .filter(Prediction.user_id == user.id)
         .order_by(Prediction.created_at.desc())
         .limit(10)
         .all()
@@ -148,11 +148,11 @@ def get_history(doctor: Doctor, db: Session) -> HistoryResponse:
 
 
 def get_prediction_detail(
-    prediction_id: int, doctor: Doctor, db: Session
+    prediction_id: int, user: User, db: Session
 ) -> dict:
     prediction = (
         db.query(Prediction)
-        .filter(Prediction.id == prediction_id, Prediction.doctor_id == doctor.id)
+        .filter(Prediction.id == prediction_id, Prediction.user_id == user.id)
         .first()
     )
     if not prediction:

@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from auth import require_developer
 from database import get_db
 from enums import UserRole
-from models import Doctor
+from models import User
 from schemas import (
     DeveloperRegisterRequest,
     ErrorResponse,
@@ -21,7 +21,7 @@ from schemas import (
     JobStatusResponse,
     TokenResponse,
 )
-from services.auth_service import register_doctor
+from services.auth_service import register_user
 from fastapi.responses import FileResponse
 from services.calibration_service import (
     create_job as svc_create_job,
@@ -59,11 +59,7 @@ async def register_developer(
     body: DeveloperRegisterRequest,
     db: Session = Depends(get_db),
 ):
-    from mail import send_otp_email
-
-    result = register_doctor(body.email, body.password, body.full_name, db, role=UserRole.DEVELOPER)
-    if result.get("otp"):
-        await send_otp_email(result["email"], result["otp"], result["full_name"])
+    result = await register_user(body.email, body.password, body.full_name, db, role=UserRole.DEVELOPER)
     return TokenResponse(
         access_token=result["access_token"],
         is_verified=result["is_verified"],
@@ -106,7 +102,7 @@ async def create_job(
     config_file: UploadFile = None,
     alpha: float = 0.1,
     db: Session = Depends(get_db),
-    developer: Doctor = Depends(require_developer),
+    developer: User = Depends(require_developer),
 ):
     job = await svc_create_job(model_file, dataset_file, config_file, alpha, developer, db)
     background_tasks.add_task(run_calibration_job, job.id)
@@ -126,7 +122,7 @@ async def create_job(
 )
 def list_jobs(
     db: Session = Depends(get_db),
-    developer: Doctor = Depends(require_developer),
+    developer: User = Depends(require_developer),
 ):
     return JobListResponse(jobs=svc_list_jobs(developer, db))
 
@@ -146,7 +142,7 @@ def list_jobs(
 def get_job(
     job_id: str,
     db: Session = Depends(get_db),
-    developer: Doctor = Depends(require_developer),
+    developer: User = Depends(require_developer),
 ):
     return svc_get_job(job_id, developer, db)
 
@@ -170,7 +166,7 @@ def get_job(
 def download_result(
     job_id: str,
     db: Session = Depends(get_db),
-    developer: Doctor = Depends(require_developer),
+    developer: User = Depends(require_developer),
 ):
     return svc_get_job_result(job_id, developer, db)
 
@@ -190,7 +186,7 @@ def download_result(
 def delete_job(
     job_id: str,
     db: Session = Depends(get_db),
-    developer: Doctor = Depends(require_developer),
+    developer: User = Depends(require_developer),
 ):
     svc_delete_job(job_id, developer, db)
 
@@ -208,7 +204,7 @@ def delete_job(
 def get_validation(
     job_id: str,
     db: Session = Depends(get_db),
-    developer: Doctor = Depends(require_developer),
+    developer: User = Depends(require_developer),
 ):
     return svc_get_validation(job_id, developer, db)
 
@@ -226,7 +222,7 @@ def get_validation(
 def regenerate_validation(
     job_id: str,
     db: Session = Depends(get_db),
-    developer: Doctor = Depends(require_developer),
+    developer: User = Depends(require_developer),
 ):
     return svc_regenerate_validation(job_id, developer, db)
 
@@ -245,7 +241,7 @@ def download_artifact(
     job_id: str,
     filename: str,
     db: Session = Depends(get_db),
-    developer: Doctor = Depends(require_developer),
+    developer: User = Depends(require_developer),
 ):
     path = svc_get_artifact(job_id, filename, developer, db)
     media = "application/octet-stream"

@@ -3,9 +3,9 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from auth import get_current_doctor
+from auth import get_current_user
 from database import get_db
-from models import Doctor
+from models import User
 from schemas import (
     ErrorResponse,
     PatientCreateRequest,
@@ -36,11 +36,11 @@ router = APIRouter(tags=["Patients"])
 )
 def create_patient(
     body: PatientCreateRequest,
-    current_doctor: Doctor = Depends(get_current_doctor),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     return create_or_get_patient(
-        body.mrn, body.first_name, body.last_name, current_doctor, db
+        body.mrn, body.first_name, body.last_name, current_user, db
     )
 
 
@@ -59,7 +59,7 @@ def create_patient(
     },
 )
 def list_patients(
-    current_doctor: Doctor = Depends(get_current_doctor),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    return list_patients_with_stats(current_doctor, db)
+    return list_patients_with_stats(current_user, db)

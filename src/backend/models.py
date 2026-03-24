@@ -18,8 +18,8 @@ from database import Base
 from enums import JobStatus, ModelVisibility, UserRole
 
 
-class Doctor(Base):
-    __tablename__ = "doctors"
+class User(Base):
+    __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String(255), unique=True, nullable=False, index=True)
@@ -40,8 +40,9 @@ class Doctor(Base):
         DateTime, nullable=False, default=lambda: datetime.now(timezone.utc)
     )
 
-    patients = relationship("Patient", back_populates="doctor")
-    predictions = relationship("Prediction", back_populates="doctor")
+    # one to many 
+    patients = relationship("Patient", back_populates="user")
+    predictions = relationship("Prediction", back_populates="user")
     calibration_jobs = relationship("CalibrationJob", back_populates="developer")
     published_models = relationship("PublishedModel", back_populates="developer")
 
@@ -49,20 +50,21 @@ class Doctor(Base):
 class Patient(Base):
     __tablename__ = "patients"
     __table_args__ = (
-        UniqueConstraint("mrn", "doctor_id", name="uq_patient_mrn_doctor"),
-        Index("ix_patient_doctor_id", "doctor_id"),
+        UniqueConstraint("mrn", "user_id", name="uq_patient_mrn_user"),
+        Index("ix_patient_user_id", "user_id"),
     )
 
     id = Column(Integer, primary_key=True, index=True)
     mrn = Column(String(100), nullable=False)
     first_name = Column(String(255), nullable=False)
     last_name = Column(String(255), nullable=False)
-    doctor_id = Column(Integer, ForeignKey("doctors.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     created_at = Column(
         DateTime, nullable=False, default=lambda: datetime.now(timezone.utc)
     )
 
-    doctor = relationship("Doctor", back_populates="patients")
+    # many to one 
+    user = relationship("User", back_populates="patients")
     predictions = relationship(
         "Prediction", back_populates="patient", order_by="desc(Prediction.created_at)"
     )
@@ -71,12 +73,12 @@ class Patient(Base):
 class Prediction(Base):
     __tablename__ = "predictions"
     __table_args__ = (
-        Index("ix_prediction_doctor_created", "doctor_id", "created_at"),
+        Index("ix_prediction_user_created", "user_id", "created_at"),
     )
 
     id = Column(Integer, primary_key=True, index=True)
     patient_id = Column(Integer, ForeignKey("patients.id"), nullable=False)
-    doctor_id = Column(Integer, ForeignKey("doctors.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     image_path = Column(String(500), nullable=False)
     top_finding = Column(String(100), nullable=False)
     top_probability = Column(Float, nullable=False)
@@ -93,7 +95,7 @@ class Prediction(Base):
     )
 
     patient = relationship("Patient", back_populates="predictions")
-    doctor = relationship("Doctor", back_populates="predictions")
+    user = relationship("User", back_populates="predictions")
     published_model = relationship("PublishedModel", back_populates="predictions")
 
 
@@ -104,7 +106,7 @@ class CalibrationJob(Base):
     )
 
     id = Column(String(36), primary_key=True)
-    developer_id = Column(Integer, ForeignKey("doctors.id"), nullable=False)
+    developer_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     status = Column(String(20), nullable=False, default=JobStatus.QUEUED.value)
     model_filename = Column(String(255), nullable=False)
     config_filename = Column(String(255), nullable=True)
@@ -119,7 +121,7 @@ class CalibrationJob(Base):
     )
     completed_at = Column(DateTime, nullable=True)
 
-    developer = relationship("Doctor", back_populates="calibration_jobs")
+    developer = relationship("User", back_populates="calibration_jobs")
     published_model = relationship(
         "PublishedModel", back_populates="calibration_job", uselist=False
     )
@@ -137,7 +139,7 @@ class PublishedModel(Base):
     calibration_job_id = Column(
         String(36), ForeignKey("calibration_jobs.id"), unique=True, nullable=False
     )
-    developer_id = Column(Integer, ForeignKey("doctors.id"), nullable=False)
+    developer_id = Column(Integer, ForeignKey("users.id"), nullable=False)
 
     # Identity
     name = Column(String(150), nullable=False)
@@ -187,6 +189,6 @@ class PublishedModel(Base):
         onupdate=lambda: datetime.now(timezone.utc),
     )
 
-    developer = relationship("Doctor", back_populates="published_models")
+    developer = relationship("User", back_populates="published_models")
     calibration_job = relationship("CalibrationJob", back_populates="published_model")
     predictions = relationship("Prediction", back_populates="published_model")

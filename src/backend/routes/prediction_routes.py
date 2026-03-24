@@ -3,9 +3,9 @@
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
-from auth import get_current_doctor
+from auth import get_current_user
 from database import get_db
-from models import Doctor
+from models import User
 from schemas import (
     ErrorResponse,
     HistoryResponse,
@@ -55,7 +55,7 @@ async def predict(
     file: UploadFile = File(..., description="Chest X-ray image (PNG or JPEG)"),
     patient_id: int = Form(..., description="ID of the patient this X-ray belongs to"),
     model_id: str = Form(None, description="Published model ID (optional — omit for legacy model)"),
-    current_doctor: Doctor = Depends(get_current_doctor),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     if not is_supported_upload(file):
@@ -66,7 +66,7 @@ async def predict(
         if not img_bytes:
             raise ValueError("Uploaded file is empty")
 
-        return create_prediction(file, img_bytes, patient_id, current_doctor, db, model_id=model_id)
+        return create_prediction(file, img_bytes, patient_id, current_user, db, model_id=model_id)
 
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -93,10 +93,10 @@ async def predict(
     },
 )
 def history(
-    current_doctor: Doctor = Depends(get_current_doctor),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    return get_history(current_doctor, db)
+    return get_history(current_user, db)
 
 
 @router.get(
@@ -120,7 +120,7 @@ def history(
 )
 def prediction_detail(
     prediction_id: int,
-    current_doctor: Doctor = Depends(get_current_doctor),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    return get_prediction_detail(prediction_id, current_doctor, db)
+    return get_prediction_detail(prediction_id, current_user, db)

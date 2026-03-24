@@ -3,16 +3,16 @@
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from models import Doctor, Patient, Prediction
+from models import User, Patient, Prediction
 from schemas import PatientListItem, PatientListResponse
 
 
 def create_or_get_patient(
-    mrn: str, first_name: str, last_name: str, doctor: Doctor, db: Session
+    mrn: str, first_name: str, last_name: str, user: User, db: Session
 ) -> Patient:
     existing = (
         db.query(Patient)
-        .filter(Patient.mrn == mrn.strip(), Patient.doctor_id == doctor.id)
+        .filter(Patient.mrn == mrn.strip(), Patient.user_id == user.id)
         .first()
     )
     if existing:
@@ -22,7 +22,7 @@ def create_or_get_patient(
         mrn=mrn.strip(),
         first_name=first_name.strip(),
         last_name=last_name.strip(),
-        doctor_id=doctor.id,
+        user_id=user.id,
     )
     db.add(patient)
     db.commit()
@@ -30,10 +30,10 @@ def create_or_get_patient(
     return patient
 
 
-def list_patients_with_stats(doctor: Doctor, db: Session) -> PatientListResponse:
+def list_patients_with_stats(user: User, db: Session) -> PatientListResponse:
     patients = (
         db.query(Patient)
-        .filter(Patient.doctor_id == doctor.id)
+        .filter(Patient.user_id == user.id)
         .order_by(Patient.created_at.desc())
         .all()
     )

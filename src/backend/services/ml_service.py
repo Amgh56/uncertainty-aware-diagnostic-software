@@ -184,12 +184,12 @@ class MLState:
     # ── Image upload ──────────────────────────────────────────
 
     def upload_xray(
-        self, img_bytes: bytes, doctor_id: int, filename: str, content_type: str
+        self, img_bytes: bytes, user_id: int, filename: str, content_type: str
     ) -> str:
         """Upload image to Supabase Storage, return public URL."""
         timestamp = int(time.time())
         safe_filename = f"{timestamp}_{filename}"
-        storage_path = f"{doctor_id}/{safe_filename}"
+        storage_path = f"{user_id}/{safe_filename}"
         return upload_image(img_bytes, storage_path, content_type)
 
 

@@ -4,9 +4,9 @@ from fastapi import APIRouter, Depends, status
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
-from auth import get_current_doctor, require_developer
+from auth import get_current_user, require_developer
 from database import get_db
-from models import Doctor
+from models import User
 from schemas import (
     ErrorResponse,
     PublishModelRequest,
@@ -44,7 +44,7 @@ router = APIRouter(tags=["Models"])
 def publish(
     body: PublishModelRequest,
     db: Session = Depends(get_db),
-    developer: Doctor = Depends(require_developer),
+    developer: User = Depends(require_developer),
 ):
     model = publish_model(
         calibration_job_id=body.calibration_job_id,
@@ -78,7 +78,7 @@ def publish(
 )
 def my_models(
     db: Session = Depends(get_db),
-    developer: Doctor = Depends(require_developer),
+    developer: User = Depends(require_developer),
 ):
     return {"models": list_my_models(developer, db)}
 
@@ -97,7 +97,7 @@ def community_models(
     verdict: str | None = None,
     sort: str = "newest",
     db: Session = Depends(get_db),
-    developer: Doctor = Depends(require_developer),
+    developer: User = Depends(require_developer),
 ):
     return {
         "models": list_community_models(db, search, modality, verdict, sort)
@@ -114,7 +114,7 @@ def community_models(
 )
 def clinician_models(
     db: Session = Depends(get_db),
-    doctor: Doctor = Depends(get_current_doctor),
+    current_user: User = Depends(get_current_user),
 ):
     return {"models": list_clinician_models(db)}
 
@@ -132,9 +132,9 @@ def clinician_models(
 def model_detail(
     model_id: str,
     db: Session = Depends(get_db),
-    doctor: Doctor = Depends(get_current_doctor),
+    current_user: User = Depends(get_current_user),
 ):
-    return get_model_detail(model_id, doctor, db)
+    return get_model_detail(model_id, current_user, db)
 
 
 @router.patch(
@@ -151,7 +151,7 @@ def change_visibility(
     model_id: str,
     body: UpdateVisibilityRequest,
     db: Session = Depends(get_db),
-    developer: Doctor = Depends(require_developer),
+    developer: User = Depends(require_developer),
 ):
     model = update_visibility(model_id, body.visibility, body.consent_agreed, developer, db)
     return {"id": model.id, "visibility": model.visibility}
@@ -170,7 +170,7 @@ def change_active(
     model_id: str,
     body: ToggleActiveRequest,
     db: Session = Depends(get_db),
-    developer: Doctor = Depends(require_developer),
+    developer: User = Depends(require_developer),
 ):
     model = toggle_active(model_id, body.is_active, developer, db)
     return {"id": model.id, "is_active": model.is_active}
@@ -188,7 +188,7 @@ def change_active(
 def download_model(
     model_id: str,
     db: Session = Depends(get_db),
-    developer: Doctor = Depends(require_developer),
+    developer: User = Depends(require_developer),
 ):
     path = get_model_artifact_path(model_id, db)
     return FileResponse(

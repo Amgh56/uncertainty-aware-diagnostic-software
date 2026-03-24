@@ -9,9 +9,9 @@ from sqlalchemy.orm import Session
 
 from database import get_db
 from enums import UserRole
-from models import Doctor
+from models import User
 
-SECRET_KEY = os.getenv("JWT_SECRET_KEY", "change-me-in-production-use-a-real-secret")
+SECRET_KEY = os.getenv("JWT_SECRET_KEY")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 480  
 
@@ -27,41 +27,41 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
 
 
-def create_access_token(doctor_id: int) -> str:
+def create_access_token(user_id: int) -> str:
     expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    payload = {"sub": str(doctor_id), "exp": expire}
+    payload = {"sub": str(user_id), "exp": expire}
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
 
-def get_current_doctor(
+def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
     db: Session = Depends(get_db),
-) -> Doctor:
+) -> User:
     token = credentials.credentials
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        doctor_id = int(payload["sub"])
+        user_id = int(payload["sub"])
     except (JWTError, KeyError, ValueError):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired token",
         )
 
-    doctor = db.query(Doctor).filter(Doctor.id == doctor_id).first()
-    if doctor is None:
+    user = db.query(User).filter(User.id == user_id).first()
+    if user is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Doctor not found",
+            detail="User not found",
         )
-    return doctor
+    return user
 
 
 def require_developer(
-    current_doctor: Doctor = Depends(get_current_doctor),
-) -> Doctor:
-    if current_doctor.role != UserRole.DEVELOPER.value:
+    current_user: User = Depends(get_current_user),
+) -> User:
+    if current_user.role != UserRole.DEVELOPER.value:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Developer access required",
         )
-    return current_doctor
+    return current_user

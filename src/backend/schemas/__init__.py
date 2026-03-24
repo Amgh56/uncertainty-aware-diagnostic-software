@@ -1,11 +1,11 @@
 """Pydantic schemas, split by entity. Re-exported here for convenience."""
 
 from schemas.common import ErrorResponse
-from schemas.doctor import (
+from schemas.user import (
     DeveloperRegisterRequest,
-    DoctorLoginRequest,
-    DoctorRegisterRequest,
-    DoctorResponse,
+    LoginRequest,
+    RegisterRequest,
+    UserResponse,
     ForgotPasswordRequest,
     ResendOtpRequest,
     ResetPasswordRequest,
@@ -44,9 +44,9 @@ from schemas.published_model import (
 __all__ = [
     "ErrorResponse",
     "DeveloperRegisterRequest",
-    "DoctorLoginRequest",
-    "DoctorRegisterRequest",
-    "DoctorResponse",
+    "LoginRequest",
+    "RegisterRequest",
+    "UserResponse",
     "ForgotPasswordRequest",
     "ResendOtpRequest",
     "ResetPasswordRequest",

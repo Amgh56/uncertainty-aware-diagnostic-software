@@ -17,7 +17,7 @@ from conformal_prediction_pipeline import (
 )
 from database import SessionLocal
 from enums import JobStatus
-from models import CalibrationJob, Doctor
+from models import CalibrationJob, User
 import pandas as pd
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
@@ -62,12 +62,13 @@ def _validate_upload_format(model_file, dataset_file, config_file):
         raise HTTPException(status_code=400, detail="Config file must be a .json file")
     
 
+# This should be uploaded and reterieved to and from supabase 
 async def create_job(
     model_file,
     dataset_file,
     config_file,
     alpha: float,
-    developer: Doctor,
+    developer: User,
     db: Session,
 ) -> CalibrationJob:
     """Validate uploads, persist files to disk, create DB record."""
@@ -129,7 +130,7 @@ async def create_job(
     return job
 
 
-def list_jobs(developer: Doctor, db: Session) -> list[CalibrationJob]:
+def list_jobs(developer: User, db: Session) -> list[CalibrationJob]:
     """Return all calibration jobs for a developer, newest first."""
     return (
         db.query(CalibrationJob)
@@ -139,12 +140,12 @@ def list_jobs(developer: Doctor, db: Session) -> list[CalibrationJob]:
     )
 
 
-def get_job(job_id: str, developer: Doctor, db: Session) -> CalibrationJob:
+def get_job(job_id: str, developer: User, db: Session) -> CalibrationJob:
     """Return a single job, scoped to the developer."""
     return _get_own_job(job_id, developer.id, db)
 
 
-def get_job_result(job_id: str, developer: Doctor, db: Session) -> FileResponse:
+def get_job_result(job_id: str, developer: User, db: Session) -> FileResponse:
     """Return a FileResponse for the lamhat.json of a completed job."""
     job = _get_own_job(job_id, developer.id, db)
 
@@ -165,7 +166,7 @@ def get_job_result(job_id: str, developer: Doctor, db: Session) -> FileResponse:
     )
 
 
-def delete_job(job_id: str, developer: Doctor, db: Session) -> None:
+def delete_job(job_id: str, developer: User, db: Session) -> None:
     """Delete job record + files from disk."""
     job = _get_own_job(job_id, developer.id, db)
 
@@ -552,7 +553,7 @@ def _compute_validation_sweep(probs, labels, pos_mask, label_names, job_alpha):
     }
 
 
-def get_validation_data(job_id: str, developer: Doctor, db: Session) -> dict:
+def get_validation_data(job_id: str, developer: User, db: Session) -> dict:
     """Return validation sweep data for a completed job."""
     job = _get_own_job(job_id, developer.id, db)
 
@@ -577,7 +578,7 @@ def get_validation_data(job_id: str, developer: Doctor, db: Session) -> dict:
     return result
 
 
-def regenerate_validation_artifacts(job_id: str, developer: Doctor, db: Session) -> dict:
+def regenerate_validation_artifacts(job_id: str, developer: User, db: Session) -> dict:
     """Re-run inference to generate validation artifacts for older jobs."""
     job = _get_own_job(job_id, developer.id, db)
 
@@ -620,7 +621,7 @@ def regenerate_validation_artifacts(job_id: str, developer: Doctor, db: Session)
     return _compute_validation_sweep(probs, labels, pos_mask, label_names, job.alpha)
 
 
-def get_validation_artifact_path(job_id: str, filename: str, developer: Doctor, db: Session) -> Path:
+def get_validation_artifact_path(job_id: str, filename: str, developer: User, db: Session) -> Path:
     """Return the path to a downloadable validation artifact."""
     job = _get_own_job(job_id, developer.id, db)
 

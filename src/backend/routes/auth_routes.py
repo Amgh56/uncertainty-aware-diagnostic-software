@@ -3,14 +3,13 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from auth import get_current_doctor
+from auth import get_current_user
 from database import get_db
-from mail import send_otp_email, send_reset_email
-from models import Doctor
+from models import User
 from schemas import (
-    DoctorLoginRequest,
-    DoctorRegisterRequest,
-    DoctorResponse,
+    LoginRequest,
+    RegisterRequest,
+    UserResponse,
     ErrorResponse,
     ForgotPasswordRequest,
     ResendOtpRequest,
@@ -20,8 +19,8 @@ from schemas import (
 )
 from services.auth_service import (
     forgot_password,
-    login_doctor,
-    register_doctor,
+    login_user,
+    register_user,
     resend_email_otp,
     reset_password,
     verify_email_otp,
@@ -33,25 +32,24 @@ router = APIRouter(tags=["Auth"])
 @router.post(
     "/auth/register",
     response_model=TokenResponse,
-    summary="Register a new doctor",
-    description="Create a new doctor account and return a JWT access token. "
-    "Password must be at least 6 characters. Account starts unverified.",
+    summary="Register a new user",
+    description="Create a new user account and return a JWT access token. "
+    "Password must be at least 8 characters with uppercase, lowercase, digit, and special character. "
+    "Account starts unverified.",
     responses={
         200: {"description": "Registration successful, JWT token returned"},
         400: {
             "model": ErrorResponse,
-            "description": "Validation error (short password or email already registered)",
+            "description": "Validation error (weak password or email already registered)",
         },
         422: {"description": "Request body validation error"},
     },
 )
 async def register(
-    body: DoctorRegisterRequest,
+    body: RegisterRequest,
     db: Session = Depends(get_db),
 ):
-    result = register_doctor(body.email, body.password, body.full_name, db)
-    if result.get("otp"):
-        await send_otp_email(result["email"], result["otp"], result["full_name"])
+    result = await register_user(body.email, body.password, body.full_name, db)
     return TokenResponse(
         access_token=result["access_token"],
         is_verified=result["is_verified"],
@@ -72,12 +70,10 @@ async def register(
     },
 )
 async def login(
-    body: DoctorLoginRequest,
+    body: LoginRequest,
     db: Session = Depends(get_db),
 ):
-    result = login_doctor(body.email, body.password, db)
-    if result.get("otp"):
-        await send_otp_email(result["email"], result["otp"], result["full_name"])
+    result = await login_user(body.email, body.password, db)
     return TokenResponse(
         access_token=result["access_token"],
         is_verified=result["is_verified"],
@@ -109,9 +105,7 @@ async def resend_otp_route(
     body: ResendOtpRequest,
     db: Session = Depends(get_db),
 ):
-    result = resend_email_otp(body.email, db)
-    if result.get("otp"):
-        await send_otp_email(result["email"], result["otp"], result["full_name"])
+    result = await resend_email_otp(body.email, db)
     return {"detail": result["detail"]}
 
 
@@ -124,20 +118,7 @@ async def forgot_password_route(
     body: ForgotPasswordRequest,
     db: Session = Depends(get_db),
 ):
-    result = forgot_password(body.email, db)
-
-    if result["token"] is not None:
-        frontend_url = "http://localhost:5173"
-        reset_link = (
-            f"{frontend_url}/reset-password"
-            f"?email={result['email']}"
-            f"&token={result['token']}"
-            f"&ts={result['timestamp']}"
-        )
-        await send_reset_email(result["email"], reset_link)
-
-    # Always return the same message — never reveal if email exists
-    return {"detail": "If that email is registered you will receive a reset link shortly."}
+    return await forgot_password(body.email, db)
 
 
 @router.post(
@@ -154,16 +135,16 @@ def reset_password_route(body: ResetPasswordRequest, db: Session = Depends(get_d
 
 @router.get(
     "/auth/me",
-    response_model=DoctorResponse,
-    summary="Get current doctor profile",
-    description="Return the authenticated doctor's profile information.",
+    response_model=UserResponse,
+    summary="Get current user profile",
+    description="Return the authenticated user's profile information.",
     responses={
-        200: {"description": "Doctor profile returned"},
+        200: {"description": "User profile returned"},
         401: {
             "model": ErrorResponse,
             "description": "Invalid or expired token",
         },
     },
 )
-def get_me(current_doctor: Doctor = Depends(get_current_doctor)):
-    return current_doctor
+def get_me(current_user: User = Depends(get_current_user)):
+    return current_user

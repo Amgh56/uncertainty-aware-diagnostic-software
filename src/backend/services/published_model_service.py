@@ -11,7 +11,7 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from enums import JobStatus, ModelVisibility
-from models import CalibrationJob, Doctor, PublishedModel
+from models import CalibrationJob, User, PublishedModel
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
 PUBLISHED_DIR = BACKEND_DIR / "published_models"
@@ -47,7 +47,7 @@ def publish_model(
     labels: list[str],
     visibility: ModelVisibility,
     consent_agreed: bool,
-    developer: Doctor,
+    developer: User,
     db: Session,
 ) -> PublishedModel:
     """Create a Published Model Package from a completed calibration job."""
@@ -173,7 +173,7 @@ def publish_model(
     return published
 
 
-def list_my_models(developer: Doctor, db: Session) -> list[dict]:
+def list_my_models(developer: User, db: Session) -> list[dict]:
     """List all published models owned by the developer."""
     models = (
         db.query(PublishedModel)
@@ -192,8 +192,8 @@ def list_community_models(
     sort: str = "newest",
 ) -> list[dict]:
     """List models visible to the developer community."""
-    q = db.query(PublishedModel, Doctor.full_name).join(
-        Doctor, PublishedModel.developer_id == Doctor.id
+    q = db.query(PublishedModel, User.full_name).join(
+        User, PublishedModel.developer_id == User.id
     ).filter(
         PublishedModel.visibility.in_([
             ModelVisibility.COMMUNITY.value,
@@ -225,8 +225,8 @@ def list_community_models(
 def list_clinician_models(db: Session) -> list[dict]:
     """List models visible to clinicians for inference."""
     results = (
-        db.query(PublishedModel, Doctor.full_name)
-        .join(Doctor, PublishedModel.developer_id == Doctor.id)
+        db.query(PublishedModel, User.full_name)
+        .join(User, PublishedModel.developer_id == User.id)
         .filter(
             PublishedModel.visibility.in_([
                 ModelVisibility.CLINICIAN.value,
@@ -241,12 +241,12 @@ def list_clinician_models(db: Session) -> list[dict]:
 
 
 def get_model_detail(
-    model_id: str, requesting_user: Doctor, db: Session
+    model_id: str, requesting_user: User, db: Session
 ) -> dict:
     """Get full details of a published model with access control."""
     result = (
-        db.query(PublishedModel, Doctor.full_name)
-        .join(Doctor, PublishedModel.developer_id == Doctor.id)
+        db.query(PublishedModel, User.full_name)
+        .join(User, PublishedModel.developer_id == User.id)
         .filter(PublishedModel.id == model_id)
         .first()
     )
@@ -278,7 +278,7 @@ def update_visibility(
     model_id: str,
     new_visibility: ModelVisibility,
     consent_agreed: bool,
-    developer: Doctor,
+    developer: User,
     db: Session,
 ) -> PublishedModel:
     """Change a model's visibility."""
@@ -318,7 +318,7 @@ def update_visibility(
 def toggle_active(
     model_id: str,
     is_active: bool,
-    developer: Doctor,
+    developer: User,
     db: Session,
 ) -> PublishedModel:
     """Activate or deactivate a published model."""
