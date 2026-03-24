@@ -1,23 +1,24 @@
 """Service layer for publishing, listing, and managing Published Model Packages."""
 
 import hashlib
+import io
 import json
-import shutil
 import uuid
+import zipfile
 from datetime import datetime, timezone
-from pathlib import Path
 
+import torch
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from enums import JobStatus, ModelVisibility
 from models import CalibrationJob, User, PublishedModel
-
-BACKEND_DIR = Path(__file__).resolve().parent.parent
-PUBLISHED_DIR = BACKEND_DIR / "published_models"
-PUBLISHED_DIR.mkdir(exist_ok=True)
-
-UPLOADS_DIR = BACKEND_DIR / "developer_uploads"
+from supabase_client import (
+    BUCKET_CALIBRATION,
+    BUCKET_MODELS,
+    download_from_bucket,
+    upload_to_bucket,
+)
 
 CONSENT_TEXT = (
     "By releasing this model, you acknowledge that: "
@@ -31,10 +32,6 @@ CONSENT_TEXT = (
     "Real clinical deployment requires formal review beyond this platform's validation."
 )
 CONSENT_TEXT_HASH = hashlib.sha256(CONSENT_TEXT.encode()).hexdigest()
-
-
-def _get_job_dir(job_id: str) -> Path:
-    return UPLOADS_DIR / job_id
 
 
 def publish_model(
@@ -105,35 +102,37 @@ def publish_model(
     lamhat = result_data["lamhat"]
     alpha = result_data["alpha"]
 
-    # Determine artifact type
-    job_dir = _get_job_dir(calibration_job_id)
-    model_path = job_dir / "model.pth"
-    if not model_path.exists():
-        raise HTTPException(status_code=404, detail="Model artifact not found on disk")
+    # Download model from calibration bucket
+    try:
+        model_bytes = download_from_bucket(
+            BUCKET_CALIBRATION, f"{calibration_job_id}/model.pth"
+        )
+    except Exception:
+        raise HTTPException(status_code=404, detail="Model artifact not found")
 
     # Detect artifact type (try torchscript first)
     artifact_type = "pytorch"
     try:
-        import torch
-        torch.jit.load(str(model_path), map_location="cpu")
+        torch.jit.load(io.BytesIO(model_bytes), map_location="cpu")
         artifact_type = "torchscript"
     except Exception:
         pass
 
-    # Copy model to published directory
+    # Upload model to published models bucket
     model_id = str(uuid.uuid4())
-    pub_dir = PUBLISHED_DIR / model_id
-    pub_dir.mkdir(parents=True, exist_ok=True)
-    dest_model = pub_dir / "model.pth"
-    shutil.copy2(str(model_path), str(dest_model))
+    artifact_path = f"{model_id}/model.pth"
+    upload_to_bucket(BUCKET_MODELS, artifact_path, model_bytes)
 
     # Copy config if exists
-    config_path = job_dir / "config.json"
     config_json_str = None
-    if config_path.exists():
-        shutil.copy2(str(config_path), str(pub_dir / "config.json"))
-        with open(config_path) as f:
-            config_json_str = f.read()
+    try:
+        config_bytes = download_from_bucket(
+            BUCKET_CALIBRATION, f"{calibration_job_id}/config.json"
+        )
+        upload_to_bucket(BUCKET_MODELS, f"{model_id}/config.json", config_bytes, "application/json")
+        config_json_str = config_bytes.decode()
+    except Exception:
+        pass
 
     # Build validation metrics from result
     metrics = result_data.get("metrics", {})
@@ -148,7 +147,7 @@ def publish_model(
         version=version,
         modality=modality,
         intended_use=intended_use,
-        artifact_path=str(dest_model),
+        artifact_path=artifact_path,
         artifact_type=artifact_type,
         config_json=config_json_str,
         labels_json=json.dumps(labels),
@@ -340,17 +339,60 @@ def toggle_active(
     return model
 
 
-def get_model_artifact_path(model_id: str, db: Session) -> Path:
-    """Return the path to the model artifact file for download."""
-    model = db.query(PublishedModel).filter(PublishedModel.id == model_id).first()
-    if model is None:
+def download_model_package(model_id: str, db: Session) -> tuple[bytes, str]:
+    """Build a ZIP package with model.pth, config.json, lamhat.json, and validation_report.json."""
+    result = (
+        db.query(PublishedModel, User.full_name)
+        .join(User, PublishedModel.developer_id == User.id)
+        .filter(PublishedModel.id == model_id)
+        .first()
+    )
+    if result is None:
         raise HTTPException(status_code=404, detail="Published model not found")
 
-    path = Path(model.artifact_path)
-    if not path.exists():
+    model, dev_name = result
+
+    # Download model artifact from Supabase
+    try:
+        model_bytes = download_from_bucket(BUCKET_MODELS, model.artifact_path)
+    except Exception:
         raise HTTPException(status_code=404, detail="Model artifact file not found")
 
-    return path
+    # Build the ZIP in memory
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        # model.pth
+        zf.writestr("model.pth", model_bytes)
+
+        # config.json (preprocessing params)
+        if model.config_json:
+            zf.writestr("config.json", model.config_json)
+
+        # lamhat.json (calibration results)
+        if model.lamhat_result_json:
+            zf.writestr("lamhat.json", model.lamhat_result_json)
+
+        # validation_report.json
+        validation_report = {
+            "model_id": model.id,
+            "model_name": model.name,
+            "version": model.version,
+            "developer": dev_name,
+            "modality": model.modality,
+            "intended_use": model.intended_use,
+            "artifact_type": model.artifact_type,
+            "labels": json.loads(model.labels_json),
+            "num_labels": model.num_labels,
+            "alpha": model.alpha,
+            "lamhat": model.lamhat,
+            "validation_verdict": model.validation_verdict,
+            "validation_metrics": json.loads(model.validation_metrics_json) if model.validation_metrics_json else None,
+            "published_at": model.created_at.isoformat() if model.created_at else None,
+        }
+        zf.writestr("validation_report.json", json.dumps(validation_report, indent=2))
+
+    filename = f"{model.name.replace(' ', '_')}_{model.version}.zip"
+    return buf.getvalue(), filename
 
 
 # ── Helpers ──────────────────────────────────────────────────

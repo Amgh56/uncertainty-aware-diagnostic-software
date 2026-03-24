@@ -1,7 +1,7 @@
 """Routes for Published Model management: publish, list, visibility, download."""
 
 from fastapi import APIRouter, Depends, status
-from fastapi.responses import FileResponse
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from auth import get_current_user, require_developer
@@ -14,7 +14,7 @@ from schemas import (
     UpdateVisibilityRequest,
 )
 from services.published_model_service import (
-    get_model_artifact_path,
+    download_model_package,
     get_model_detail,
     list_clinician_models,
     list_community_models,
@@ -178,10 +178,10 @@ def change_active(
 
 @router.get(
     "/models/{model_id}/download",
-    summary="Download model artifact",
-    description="Download the .pth/.pt model file for a community-shared model.",
+    summary="Download model package",
+    description="Download a ZIP package containing model.pth, config.json, lamhat.json, and validation_report.json.",
     responses={
-        200: {"description": "Model file download"},
+        200: {"description": "Model package ZIP download"},
         404: {"model": ErrorResponse, "description": "Model not found"},
     },
 )
@@ -190,9 +190,9 @@ def download_model(
     db: Session = Depends(get_db),
     developer: User = Depends(require_developer),
 ):
-    path = get_model_artifact_path(model_id, db)
-    return FileResponse(
-        path=str(path),
-        media_type="application/octet-stream",
-        filename=f"model_{model_id[:8]}.pth",
+    data, filename = download_model_package(model_id, db)
+    return Response(
+        content=data,
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )

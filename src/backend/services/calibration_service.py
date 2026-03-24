@@ -1,15 +1,17 @@
+import io
 import json
-import shutil
 import uuid
 import zipfile
 from datetime import datetime, timezone
-from pathlib import Path
+
 import cv2
 import numpy as np
+import pandas as pd
 import torch
 from fastapi import HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
+
 from conformal_prediction_pipeline import (
     compute_lamhat,
     false_negative_rate,
@@ -18,25 +20,35 @@ from conformal_prediction_pipeline import (
 from database import SessionLocal
 from enums import JobStatus
 from models import CalibrationJob, User
-import pandas as pd
-
-BACKEND_DIR = Path(__file__).resolve().parent.parent
-UPLOADS_DIR = BACKEND_DIR / "developer_uploads"
-UPLOADS_DIR.mkdir(exist_ok=True)
+from supabase_client import (
+    BUCKET_CALIBRATION,
+    BUCKET_MODELS,
+    delete_from_bucket,
+    download_from_bucket,
+    upload_to_bucket,
+)
 
 MIN_IMAGES = 50
-MODEL_SIZE_LIMIT = 500 * 1024 * 1024       
-DATASET_SIZE_LIMIT = 2 * 1024 * 1024 * 1024  
+MODEL_SIZE_LIMIT = 500 * 1024 * 1024
+DATASET_SIZE_LIMIT = 2 * 1024 * 1024 * 1024
 
 ALLOWED_MODEL_EXT = (".pth", ".pt")
 REQUIRED_CONFIG_FIELDS = ("width", "height", "pixel_mean", "pixel_std")
 
 
+# ── Supabase path helpers ─────────────────────────────────────
+
+def _job_path(job_id: str, filename: str) -> str:
+    """Return the Supabase storage path for a job file."""
+    return f"{job_id}/{filename}"
 
 
-def _job_dir(job_id: str) -> Path:
-    return UPLOADS_DIR / job_id
+def _result_path(job_id: str, filename: str) -> str:
+    """Return the Supabase storage path for a job result file."""
+    return f"{job_id}/result/{filename}"
 
+
+# ── Helpers ───────────────────────────────────────────────────
 
 def _get_own_job(job_id: str, developer_id: int, db: Session) -> CalibrationJob:
     job = (
@@ -60,9 +72,10 @@ def _validate_upload_format(model_file, dataset_file, config_file):
         raise HTTPException(status_code=400, detail="Dataset file must be a .zip file")
     if config_file is not None and not (config_file.filename or "").lower().endswith(".json"):
         raise HTTPException(status_code=400, detail="Config file must be a .json file")
-    
 
-# This should be uploaded and reterieved to and from supabase 
+
+# ── Job CRUD ──────────────────────────────────────────────────
+
 async def create_job(
     model_file,
     dataset_file,
@@ -71,8 +84,8 @@ async def create_job(
     developer: User,
     db: Session,
 ) -> CalibrationJob:
-    """Validate uploads, persist files to disk, create DB record."""
-    
+    """Validate uploads, persist files to Supabase, create DB record."""
+
     _validate_upload_format(model_file, dataset_file, config_file)
     if not (0.0 < alpha < 1.0):
         raise HTTPException(status_code=400, detail="alpha must be between 0 and 1")
@@ -105,13 +118,12 @@ async def create_job(
                 )
 
     job_id = str(uuid.uuid4())
-    base = _job_dir(job_id)
-    base.mkdir(parents=True, exist_ok=True)
 
-    (base / "model.pth").write_bytes(model_bytes)
-    (base / "dataset.zip").write_bytes(dataset_bytes)
+    # Upload files to Supabase Storage
+    upload_to_bucket(BUCKET_CALIBRATION, _job_path(job_id, "model.pth"), model_bytes)
+    upload_to_bucket(BUCKET_CALIBRATION, _job_path(job_id, "dataset.zip"), dataset_bytes, "application/zip")
     if config_bytes is not None:
-        (base / "config.json").write_bytes(config_bytes)
+        upload_to_bucket(BUCKET_CALIBRATION, _job_path(job_id, "config.json"), config_bytes, "application/json")
 
     now = datetime.now(timezone.utc)
     job = CalibrationJob(
@@ -145,8 +157,8 @@ def get_job(job_id: str, developer: User, db: Session) -> CalibrationJob:
     return _get_own_job(job_id, developer.id, db)
 
 
-def get_job_result(job_id: str, developer: User, db: Session) -> FileResponse:
-    """Return a FileResponse for the lamhat.json of a completed job."""
+def get_job_result(job_id: str, developer: User, db: Session) -> Response:
+    """Download lamhat.json from Supabase for a completed job."""
     job = _get_own_job(job_id, developer.id, db)
 
     if job.status != JobStatus.DONE.value:
@@ -155,44 +167,61 @@ def get_job_result(job_id: str, developer: User, db: Session) -> FileResponse:
             detail=f"Job is not complete yet (status: {job.status})",
         )
 
-    result_path = _job_dir(job_id) / "result" / "lamhat.json"
-    if not result_path.exists():
-        raise HTTPException(status_code=404, detail="Result file not found on disk")
+    try:
+        data = download_from_bucket(BUCKET_CALIBRATION, _result_path(job_id, "lamhat.json"))
+    except Exception:
+        raise HTTPException(status_code=404, detail="Result file not found")
 
-    return FileResponse(
-        path=str(result_path),
+    return Response(
+        content=data,
         media_type="application/json",
-        filename=f"lamhat_{job_id[:8]}.json",
+        headers={"Content-Disposition": f'attachment; filename="lamhat_{job_id[:8]}.json"'},
     )
 
 
 def delete_job(job_id: str, developer: User, db: Session) -> None:
-    """Delete job record + files from disk."""
+    """Delete job record, published model (if any), and files from Supabase."""
     job = _get_own_job(job_id, developer.id, db)
 
-    d = _job_dir(job_id)
-    if d.exists():
-        shutil.rmtree(d, ignore_errors=True)
+    # Clean up published model files from Supabase if this job was published
+    if job.published_model:
+        model_id = job.published_model.id
+        try:
+            delete_from_bucket(BUCKET_MODELS, [
+                f"{model_id}/model.pth",
+                f"{model_id}/config.json",
+            ])
+        except Exception:
+            pass
 
+    # Clean up calibration job files from Supabase
+    paths_to_delete = [
+        _job_path(job_id, "model.pth"),
+        _job_path(job_id, "dataset.zip"),
+        _job_path(job_id, "config.json"),
+        _result_path(job_id, "lamhat.json"),
+        _result_path(job_id, "cal_probs.npy"),
+        _result_path(job_id, "cal_labels.npy"),
+        _result_path(job_id, "cal_pos_mask.npy"),
+        _result_path(job_id, "label_names.json"),
+    ]
+    try:
+        delete_from_bucket(BUCKET_CALIBRATION, paths_to_delete)
+    except Exception:
+        pass
+
+    # Cascade deletes the published_model automatically
     db.delete(job)
     db.commit()
 
 
+# ── Processing helpers (all work with bytes in memory) ────────
 
-
-def _read_preproc(config_path: Path) -> dict | None:
-    """
-    Read preprocessing parameters from the uploaded config.json.
-
-    Required fields (when config is present): width, height, pixel_mean, pixel_std.
-    Optional: use_equalizeHist (default False).
-
-    Returns None if no config was uploaded.
-    """
-    if not config_path.exists():
+def _parse_config_bytes(config_bytes: bytes | None) -> dict | None:
+    """Parse preprocessing config from raw bytes."""
+    if config_bytes is None:
         return None
-    with open(config_path) as f:
-        cfg = json.load(f)
+    cfg = json.loads(config_bytes)
     return {
         "width":            int(cfg["width"]),
         "height":           int(cfg["height"]),
@@ -202,26 +231,23 @@ def _read_preproc(config_path: Path) -> dict | None:
     }
 
 
+def _load_model_from_bytes(model_bytes: bytes) -> torch.nn.Module:
+    """Load a PyTorch model from raw bytes via BytesIO."""
+    buffer = io.BytesIO(model_bytes)
 
-
-def _load_generic_model(model_path: Path) -> torch.nn.Module:
-    """
-    Load a model file.  Two formats are accepted:
-
-    1. TorchScript (recommended) — torch.jit.save / torch.jit.load
-    2. Full nn.Module — torch.save(model, path)
-
-    State dicts (OrderedDict) are not accepted.
-    """
+    # Try TorchScript first
     try:
-        model = torch.jit.load(str(model_path), map_location="cpu")
+        buffer.seek(0)
+        model = torch.jit.load(buffer, map_location="cpu")
         model.eval()
         return model
     except Exception:
         pass
 
+    # Try full saved model
     try:
-        obj = torch.load(str(model_path), map_location="cpu", weights_only=False)
+        buffer.seek(0)
+        obj = torch.load(buffer, map_location="cpu", weights_only=False)
     except Exception as exc:
         raise ValueError(f"Could not read model file: {exc}") from exc
 
@@ -242,13 +268,12 @@ def _load_generic_model(model_path: Path) -> torch.nn.Module:
     )
 
 
-
-
-def _preprocess_image(img_path: Path, preproc: dict | None) -> np.ndarray:
-    """Read a grayscale image and return a float32 array (3, H, W)."""
-    img = cv2.imread(str(img_path), cv2.IMREAD_GRAYSCALE)
+def _preprocess_image_bytes(img_bytes: bytes, preproc: dict | None) -> np.ndarray:
+    """Decode image bytes and return a float32 array (3, H, W)."""
+    arr = np.frombuffer(img_bytes, dtype=np.uint8)
+    img = cv2.imdecode(arr, cv2.IMREAD_GRAYSCALE)
     if img is None:
-        raise FileNotFoundError(f"Cannot read image: {img_path}")
+        raise ValueError("Could not decode image")
 
     img = img.astype(np.float32)
 
@@ -275,25 +300,23 @@ def _forward(model: torch.nn.Module, x: torch.Tensor) -> np.ndarray:
         return torch.sigmoid(logits).cpu().numpy()
 
 
-def _infer_all_probs(
+def _infer_all_probs_from_bytes(
     model: torch.nn.Module,
     preproc: dict | None,
-    img_paths: list,
+    image_bytes_list: list[bytes],
     batch_size: int = 16,
 ) -> np.ndarray:
-    """Batched inference over all images. Returns probabilities (N, n_classes)."""
+    """Batched inference over image bytes. Returns probabilities (N, n_classes)."""
     device = pick_device()
     model = model.to(device)
 
     all_probs = []
-    for i in range(0, len(img_paths), batch_size):
-        batch = [_preprocess_image(p, preproc) for p in img_paths[i:i + batch_size]]
+    for i in range(0, len(image_bytes_list), batch_size):
+        batch = [_preprocess_image_bytes(b, preproc) for b in image_bytes_list[i:i + batch_size]]
         x = torch.tensor(np.stack(batch), dtype=torch.float32, device=device)
         all_probs.append(_forward(model, x))
 
     return np.concatenate(all_probs, axis=0)
-
-
 
 
 def _evaluate_sets(
@@ -336,64 +359,61 @@ def _evaluate_sets(
     return results
 
 
-
-def _validate_and_extract_zip(zip_path: Path, dest_dir: Path) -> Path:
-    """Validate zip structure, protect against path traversal, extract."""
-    with zipfile.ZipFile(zip_path, "r") as zf:
+def _extract_dataset_from_zip_bytes(zip_bytes: bytes) -> tuple[list[bytes], np.ndarray, np.ndarray, list[str]]:
+    """
+    Extract and validate a dataset ZIP from bytes in memory.
+    Returns (image_bytes_list, labels, pos_mask, label_names).
+    """
+    with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
         members = zf.namelist()
 
         for member in members:
             if member.startswith("/") or ".." in member:
                 raise ValueError(f"Unsafe path in zip: {member!r}")
 
+        # Detect wrapper directory
         top_dirs = {m.split("/")[0] for m in members if "/" in m}
         has_wrapper = (
             len(top_dirs) == 1
             and all(m.startswith(list(top_dirs)[0] + "/") for m in members if m != list(top_dirs)[0] + "/")
         )
-        zf.extractall(dest_dir)
+        prefix = list(top_dirs)[0] + "/" if has_wrapper else ""
 
-    dataset_root = dest_dir / list(top_dirs)[0] if has_wrapper else dest_dir
+        # Find and read labels.csv
+        labels_csv_path = f"{prefix}labels.csv"
+        if labels_csv_path not in members:
+            raise ValueError("Dataset zip must contain a 'labels.csv' file.")
 
-    if not (dataset_root / "images").is_dir():
-        raise ValueError("Dataset zip must contain an 'images/' folder.")
-    if not (dataset_root / "labels.csv").exists():
-        raise ValueError("Dataset zip must contain a 'labels.csv' file.")
+        labels_csv_bytes = zf.read(labels_csv_path)
+        df = pd.read_csv(io.BytesIO(labels_csv_bytes))
 
-    return dataset_root
+        if "filename" not in df.columns:
+            raise ValueError("labels.csv must have a 'filename' column.")
 
+        label_names = [c for c in df.columns if c != "filename"]
+        if not label_names:
+            raise ValueError("labels.csv must have at least one label column besides 'filename'.")
 
-def _validate_labels_csv(labels_csv: Path, images_dir: Path) -> tuple:
-    """Parse labels.csv. Any column other than 'filename' is a label."""
+        if len(df) < MIN_IMAGES:
+            raise ValueError(
+                f"Dataset must have at least {MIN_IMAGES} labelled images (got {len(df)})."
+            )
 
-    df = pd.read_csv(labels_csv)
-
-    if "filename" not in df.columns:
-        raise ValueError("labels.csv must have a 'filename' column.")
-
-    label_names = [c for c in df.columns if c != "filename"]
-    if not label_names:
-        raise ValueError("labels.csv must have at least one label column besides 'filename'.")
-
-    if len(df) < MIN_IMAGES:
-        raise ValueError(
-            f"Dataset must have at least {MIN_IMAGES} labelled images (got {len(df)})."
-        )
-
-    img_paths = []
-    for fname in df["filename"]:
-        p = images_dir / fname
-        if not p.exists():
-            raise ValueError(f"Image referenced in labels.csv not found: {fname}")
-        img_paths.append(p)
+        # Read each image referenced in labels.csv
+        image_bytes_list = []
+        for fname in df["filename"]:
+            img_zip_path = f"{prefix}images/{fname}"
+            if img_zip_path not in members:
+                raise ValueError(f"Image referenced in labels.csv not found in zip: {fname}")
+            image_bytes_list.append(zf.read(img_zip_path))
 
     labels = df[label_names].values.astype(np.float32)
     pos_mask = (labels.sum(axis=1) > 0)
 
-    return img_paths, labels, pos_mask, label_names
+    return image_bytes_list, labels, pos_mask, label_names
 
 
-
+# ── Main calibration pipeline ─────────────────────────────────
 
 def run_calibration_job(job_id: str) -> None:
     """
@@ -409,35 +429,33 @@ def run_calibration_job(job_id: str) -> None:
         job.status = JobStatus.RUNNING.value
         db.commit()
 
-        base        = _job_dir(job_id)
-        model_path  = base / "model.pth"
-        config_path = base / "config.json"
-        dataset_zip = base / "dataset.zip"
-        dataset_dir = base / "dataset"
-        result_dir  = base / "result"
-        result_dir.mkdir(exist_ok=True)
-        dataset_dir.mkdir(exist_ok=True)
+        # Download files from Supabase
+        model_bytes = download_from_bucket(BUCKET_CALIBRATION, _job_path(job_id, "model.pth"))
+        dataset_bytes = download_from_bucket(BUCKET_CALIBRATION, _job_path(job_id, "dataset.zip"))
 
-        preproc      = _read_preproc(config_path)
-        dataset_root = _validate_and_extract_zip(dataset_zip, dataset_dir)
+        try:
+            config_bytes = download_from_bucket(BUCKET_CALIBRATION, _job_path(job_id, "config.json"))
+        except Exception:
+            config_bytes = None
 
-        images_dir = dataset_root / "images"
-        labels_csv = dataset_root / "labels.csv"
-        img_paths, labels, pos_mask, label_names = _validate_labels_csv(labels_csv, images_dir)
+        # Parse config and dataset
+        preproc = _parse_config_bytes(config_bytes)
+        image_bytes_list, labels, pos_mask, label_names = _extract_dataset_from_zip_bytes(dataset_bytes)
 
-        model = _load_generic_model(model_path)
+        # Load model and run inference
+        model = _load_model_from_bytes(model_bytes)
         model = model.to(pick_device())
 
-        probs   = _infer_all_probs(model, preproc, img_paths, batch_size=16)
-        lamhat  = compute_lamhat(probs, labels, pos_mask, job.alpha)
+        probs = _infer_all_probs_from_bytes(model, preproc, image_bytes_list, batch_size=16)
+        lamhat = compute_lamhat(probs, labels, pos_mask, job.alpha)
 
         pred_sets = (probs >= lamhat).astype(np.float32)
-        metrics   = _evaluate_sets(pred_sets, labels, pos_mask, label_names)
+        metrics = _evaluate_sets(pred_sets, labels, pos_mask, label_names)
 
         result = {
             "lamhat": float(lamhat),
             "alpha": float(job.alpha),
-            "n_samples": len(img_paths),
+            "n_samples": len(image_bytes_list),
             "labels": label_names,
             "preprocessing": preproc if preproc is not None else {"note": "no config uploaded"},
             "metrics": {
@@ -447,16 +465,22 @@ def run_calibration_job(job_id: str) -> None:
             "calibrated_at": datetime.now(timezone.utc).isoformat(),
         }
 
-        # Save inference artifacts for later validation
-        np.save(str(result_dir / "cal_probs.npy"), probs)
-        np.save(str(result_dir / "cal_labels.npy"), labels)
-        np.save(str(result_dir / "cal_pos_mask.npy"), pos_mask)
-        with open(result_dir / "label_names.json", "w") as f:
-            json.dump(label_names, f)
-
-        result_path = result_dir / "lamhat.json"
-        with open(result_path, "w") as f:
-            json.dump(result, f, indent=2)
+        # Upload result artifacts to Supabase
+        _upload_npy(job_id, "cal_probs.npy", probs)
+        _upload_npy(job_id, "cal_labels.npy", labels)
+        _upload_npy(job_id, "cal_pos_mask.npy", pos_mask)
+        upload_to_bucket(
+            BUCKET_CALIBRATION,
+            _result_path(job_id, "label_names.json"),
+            json.dumps(label_names).encode(),
+            "application/json",
+        )
+        upload_to_bucket(
+            BUCKET_CALIBRATION,
+            _result_path(job_id, "lamhat.json"),
+            json.dumps(result, indent=2).encode(),
+            "application/json",
+        )
 
         job.result_json = json.dumps(result)
         job.status = JobStatus.DONE.value
@@ -476,27 +500,33 @@ def run_calibration_job(job_id: str) -> None:
         db.close()
 
 
-# ─── Validation ───────────────────────────────────────────────────────
+def _upload_npy(job_id: str, filename: str, arr: np.ndarray) -> None:
+    """Serialize a numpy array and upload to Supabase."""
+    buf = io.BytesIO()
+    np.save(buf, arr)
+    upload_to_bucket(BUCKET_CALIBRATION, _result_path(job_id, filename), buf.getvalue())
+
+
+# ─── Validation ───────────────────────────────────────────────
 
 VALIDATION_ALPHAS = np.linspace(0.001, 0.99, 200).tolist()
 
 
 def _load_validation_artifacts(job_id: str):
-    """Load saved numpy artifacts for a completed job."""
-    result_dir = _job_dir(job_id) / "result"
-    probs_path = result_dir / "cal_probs.npy"
-    labels_path = result_dir / "cal_labels.npy"
-    mask_path = result_dir / "cal_pos_mask.npy"
-    names_path = result_dir / "label_names.json"
-
-    if not probs_path.exists():
+    """Download saved numpy artifacts from Supabase for a completed job."""
+    try:
+        probs_bytes = download_from_bucket(BUCKET_CALIBRATION, _result_path(job_id, "cal_probs.npy"))
+    except Exception:
         return None
 
-    probs = np.load(str(probs_path))
-    labels = np.load(str(labels_path))
-    pos_mask = np.load(str(mask_path))
-    with open(names_path) as f:
-        label_names = json.load(f)
+    labels_bytes = download_from_bucket(BUCKET_CALIBRATION, _result_path(job_id, "cal_labels.npy"))
+    mask_bytes = download_from_bucket(BUCKET_CALIBRATION, _result_path(job_id, "cal_pos_mask.npy"))
+    names_bytes = download_from_bucket(BUCKET_CALIBRATION, _result_path(job_id, "label_names.json"))
+
+    probs = np.load(io.BytesIO(probs_bytes))
+    labels = np.load(io.BytesIO(labels_bytes))
+    pos_mask = np.load(io.BytesIO(mask_bytes))
+    label_names = json.loads(names_bytes)
 
     return probs, labels, pos_mask, label_names
 
@@ -585,44 +615,40 @@ def regenerate_validation_artifacts(job_id: str, developer: User, db: Session) -
     if job.status != JobStatus.DONE.value:
         raise HTTPException(status_code=400, detail=f"Job is not complete (status: {job.status})")
 
-    base = _job_dir(job_id)
-    model_path = base / "model.pth"
-    config_path = base / "config.json"
-    dataset_dir = base / "dataset"
-    result_dir = base / "result"
+    # Download model and dataset from Supabase
+    try:
+        model_bytes = download_from_bucket(BUCKET_CALIBRATION, _job_path(job_id, "model.pth"))
+        dataset_bytes = download_from_bucket(BUCKET_CALIBRATION, _job_path(job_id, "dataset.zip"))
+    except Exception:
+        raise HTTPException(status_code=404, detail="Original job files not found")
 
-    if not model_path.exists() or not dataset_dir.exists():
-        raise HTTPException(status_code=404, detail="Original job files not found on disk")
+    try:
+        config_bytes = download_from_bucket(BUCKET_CALIBRATION, _job_path(job_id, "config.json"))
+    except Exception:
+        config_bytes = None
 
-    preproc = _read_preproc(config_path)
+    preproc = _parse_config_bytes(config_bytes)
+    image_bytes_list, labels, pos_mask, label_names = _extract_dataset_from_zip_bytes(dataset_bytes)
 
-    # Find dataset root (may have wrapper dir)
-    candidates = list(dataset_dir.iterdir())
-    dataset_root = dataset_dir
-    for c in candidates:
-        if c.is_dir() and (c / "images").is_dir() and (c / "labels.csv").exists():
-            dataset_root = c
-            break
+    model = _load_model_from_bytes(model_bytes)
+    probs = _infer_all_probs_from_bytes(model, preproc, image_bytes_list, batch_size=16)
 
-    images_dir = dataset_root / "images"
-    labels_csv = dataset_root / "labels.csv"
-    img_paths, labels, pos_mask, label_names = _validate_labels_csv(labels_csv, images_dir)
-
-    model = _load_generic_model(model_path)
-    probs = _infer_all_probs(model, preproc, img_paths, batch_size=16)
-
-    result_dir.mkdir(exist_ok=True)
-    np.save(str(result_dir / "cal_probs.npy"), probs)
-    np.save(str(result_dir / "cal_labels.npy"), labels)
-    np.save(str(result_dir / "cal_pos_mask.npy"), pos_mask)
-    with open(result_dir / "label_names.json", "w") as f:
-        json.dump(label_names, f)
+    # Upload new artifacts to Supabase
+    _upload_npy(job_id, "cal_probs.npy", probs)
+    _upload_npy(job_id, "cal_labels.npy", labels)
+    _upload_npy(job_id, "cal_pos_mask.npy", pos_mask)
+    upload_to_bucket(
+        BUCKET_CALIBRATION,
+        _result_path(job_id, "label_names.json"),
+        json.dumps(label_names).encode(),
+        "application/json",
+    )
 
     return _compute_validation_sweep(probs, labels, pos_mask, label_names, job.alpha)
 
 
-def get_validation_artifact_path(job_id: str, filename: str, developer: User, db: Session) -> Path:
-    """Return the path to a downloadable validation artifact."""
+def get_validation_artifact(job_id: str, filename: str, developer: User, db: Session) -> tuple[bytes, str]:
+    """Download a validation artifact from Supabase. Returns (bytes, media_type)."""
     job = _get_own_job(job_id, developer.id, db)
 
     if job.status != JobStatus.DONE.value:
@@ -632,10 +658,10 @@ def get_validation_artifact_path(job_id: str, filename: str, developer: User, db
     if filename not in allowed:
         raise HTTPException(status_code=400, detail=f"Invalid artifact: {filename}")
 
-    path = _job_dir(job_id) / "result" / filename
-    if not path.exists():
+    try:
+        data = download_from_bucket(BUCKET_CALIBRATION, _result_path(job_id, filename))
+    except Exception:
         raise HTTPException(status_code=404, detail=f"Artifact not found: {filename}")
 
-    return path
-
-
+    media_type = "application/json" if filename.endswith(".json") else "application/octet-stream"
+    return data, media_type

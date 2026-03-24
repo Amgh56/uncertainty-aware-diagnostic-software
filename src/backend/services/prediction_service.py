@@ -1,7 +1,6 @@
 """Business logic for predictions: creation, history, detail retrieval."""
 
 import json
-from typing import Optional
 
 from fastapi import HTTPException, UploadFile
 from sqlalchemy.orm import Session
@@ -29,7 +28,7 @@ def create_prediction(
     patient_id: int,
     user: User,
     db: Session,
-    model_id: Optional[str] = None,
+    model_id: str,
 ) -> dict:
     """Validate patient, upload image, run inference, persist, return result."""
     patient = (
@@ -47,29 +46,18 @@ def create_prediction(
         file.content_type or "image/png",
     )
 
-    # Determine which model to use
-    published_model = None
-    if model_id:
-        published_model = (
-            db.query(PublishedModel)
-            .filter(PublishedModel.id == model_id, PublishedModel.is_active == True)
-            .first()
+    published_model = (
+        db.query(PublishedModel)
+        .filter(PublishedModel.id == model_id, PublishedModel.is_active == True)
+        .first()
+    )
+    if not published_model:
+        raise HTTPException(
+            status_code=404,
+            detail="Published model not found or is inactive",
         )
-        if not published_model:
-            raise HTTPException(
-                status_code=404,
-                detail="Published model not found or is inactive",
-            )
-        findings = ml_state.run_published_inference(img_bytes, published_model)
-        alpha = published_model.alpha
-        lamhat = published_model.lamhat
-        num_labels = published_model.num_labels
-    else:
-        # Legacy: use hardcoded model
-        findings = ml_state.run_inference(img_bytes)
-        alpha = ml_state.alpha
-        lamhat = ml_state.lamhat
-        num_labels = len(findings)
+
+    findings = ml_state.run_inference(img_bytes, published_model)
 
     prediction_set_size = sum(1 for f in findings if f["in_prediction_set"])
     top = findings[0]
@@ -81,9 +69,9 @@ def create_prediction(
         top_finding=top["finding"],
         top_probability=top["probability"],
         prediction_set_size=prediction_set_size,
-        coverage=f"{int((1 - alpha) * 100)}%",
-        alpha=alpha,
-        lamhat=round(lamhat, 6),
+        coverage=f"{int((1 - published_model.alpha) * 100)}%",
+        alpha=published_model.alpha,
+        lamhat=round(published_model.lamhat, 6),
         findings_json=json.dumps(findings),
         published_model_id=model_id,
     )
@@ -91,17 +79,14 @@ def create_prediction(
     db.commit()
     db.refresh(prediction)
 
-    # Build model info for response
-    model_info = None
-    if published_model:
-        model_info = {
-            "id": published_model.id,
-            "name": published_model.name,
-            "version": published_model.version,
-            "modality": published_model.modality,
-            "num_labels": published_model.num_labels,
-            "validation_verdict": published_model.validation_verdict,
-        }
+    model_info = {
+        "id": published_model.id,
+        "name": published_model.name,
+        "version": published_model.version,
+        "modality": published_model.modality,
+        "num_labels": published_model.num_labels,
+        "validation_verdict": published_model.validation_verdict,
+    }
 
     return {
         "id": prediction.id,
@@ -110,9 +95,9 @@ def create_prediction(
         "top_finding": top["finding"],
         "top_probability": top["probability"],
         "prediction_set_size": prediction_set_size,
-        "coverage": f"{int((1 - alpha) * 100)}%",
-        "alpha": alpha,
-        "lamhat": round(lamhat, 6),
+        "coverage": f"{int((1 - published_model.alpha) * 100)}%",
+        "alpha": published_model.alpha,
+        "lamhat": round(published_model.lamhat, 6),
         "findings": findings,
         "created_at": prediction.created_at.isoformat(),
         "model_info": model_info,

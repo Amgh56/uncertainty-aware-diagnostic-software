@@ -91,14 +91,14 @@ export default function ModelLibraryPage() {
     }
   }
 
-  async function handleDownload(modelId: string) {
+  async function handleDownload(modelId: string, modelName?: string) {
     if (!token) return;
     try {
-      const blob = await downloadModelArtifact(modelId, token);
+      const { blob } = await downloadModelArtifact(modelId, token);
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `model_${modelId.slice(0, 8)}.pth`;
+      a.download = `${(modelName ?? modelId.slice(0, 8)).replace(/\s+/g, "_")}.zip`;
       a.click();
       URL.revokeObjectURL(url);
     } catch {
@@ -269,7 +269,7 @@ export default function ModelLibraryPage() {
                   {tab === "community" && (
                     <button
                       className="val-btn val-btn-outline"
-                      onClick={() => handleDownload(model.id)}
+                      onClick={() => handleDownload(model.id, model.name)}
                     >
                       Download
                     </button>
@@ -376,8 +376,8 @@ export default function ModelLibraryPage() {
                 <button className="val-btn val-btn-outline" onClick={() => setSelectedModel(null)}>
                   Close
                 </button>
-                <button className="val-btn val-btn-primary" onClick={() => handleDownload(selectedModel.id)}>
-                  Download Artifact
+                <button className="val-btn val-btn-primary" onClick={() => handleDownload(selectedModel.id, selectedModel.name)}>
+                  Download Package (.zip)
                 </button>
               </div>
             </div>

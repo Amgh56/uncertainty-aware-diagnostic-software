@@ -1,31 +1,22 @@
 """
 ML state holder and dynamic model loader.
 
-- Legacy model: loaded once at startup (the hardcoded CheXpert model)
-- Published models: loaded on-demand with LRU cache (bounded)
+Published models are loaded on-demand from Supabase with LRU cache.
 """
 
+import io
 import json
 import time
 from collections import OrderedDict
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import Optional
 
 import cv2
 import numpy as np
 import torch
 
-from conformal_prediction_pipeline import (
-    DISEASES,
-    load_chexpert_pretrained_model,
-    pick_device,
-    predict_batch_probs,
-    preprocess_image_from_bytes,
-)
-from supabase_client import upload_image
-
-BACKEND_DIR = Path(__file__).resolve().parent.parent  # services/ -> backend/
+from conformal_prediction_pipeline import pick_device
+from supabase_client import BUCKET_MODELS, download_from_bucket, upload_image
 
 MAX_CACHED_MODELS = 5
 
@@ -44,64 +35,10 @@ class LoadedModel:
 
 @dataclass
 class MLState:
-    """Holds the legacy model and a cache of published models."""
-    model: Optional[object] = None
-    config: Optional[object] = None
-    device: Optional[str] = None
-    lamhat: Optional[float] = None
-    alpha: Optional[float] = None
-    diseases: list = field(default_factory=lambda: list(DISEASES))
+    """Holds a cache of published models loaded from Supabase."""
 
     # LRU cache for published models: model_id -> LoadedModel
     _model_cache: OrderedDict = field(default_factory=OrderedDict)
-
-    def load(self) -> None:
-        """Load the legacy hardcoded model at startup."""
-        self.model, self.config = load_chexpert_pretrained_model()
-        self.device = pick_device()
-        self.model = self.model.to(self.device)
-        self.lamhat, self.alpha = self._load_lamhat_json()
-        print(f"Model loaded on device: {self.device}")
-        print(f"Loaded lamhat={self.lamhat:.6f}, alpha={self.alpha}")
-
-    def _load_lamhat_json(self) -> tuple[float, float]:
-        lamhat_path = BACKEND_DIR / "NIH_dataset" / "artifacts" / "lamhat.json"
-        if not lamhat_path.exists():
-            raise FileNotFoundError(
-                f"lamhat.json not found at: {lamhat_path}. Run calibration first."
-            )
-        with open(lamhat_path, "r") as f:
-            payload = json.load(f)
-        if "lamhat" not in payload or "alpha" not in payload:
-            raise ValueError(f"lamhat payload missing keys in {lamhat_path}")
-        return float(payload["lamhat"]), float(payload["alpha"])
-
-    # ── Legacy inference (no model_id) ────────────────────────
-
-    def run_inference(self, img_bytes: bytes) -> list[dict]:
-        """Legacy: run using the hardcoded CheXpert model."""
-        img_array = preprocess_image_from_bytes(img_bytes, self.config)
-        x = torch.tensor(
-            img_array[np.newaxis], dtype=torch.float32, device=self.device
-        )
-        probs = predict_batch_probs(self.model, x)[0]
-
-        findings = []
-        for i, disease in enumerate(DISEASES):
-            p = float(probs[i])
-            in_set = bool(p >= self.lamhat)
-            uncertainty = _classify_uncertainty(p)
-            findings.append({
-                "finding": disease,
-                "probability": round(p, 4),
-                "uncertainty": uncertainty,
-                "in_prediction_set": in_set,
-            })
-
-        findings.sort(key=lambda row: row["probability"], reverse=True)
-        return findings
-
-    # ── Dynamic inference (with published model) ──────────────
 
     def load_published_model(self, published_model) -> LoadedModel:
         """Load a published model, using cache if available."""
@@ -112,17 +49,18 @@ class MLState:
             self._model_cache.move_to_end(model_id)
             return self._model_cache[model_id]
 
-        # Cache miss — load from disk
-        artifact_path = Path(published_model.artifact_path)
-        if not artifact_path.exists():
+        # Cache miss — download from Supabase
+        try:
+            model_bytes = download_from_bucket(BUCKET_MODELS, published_model.artifact_path)
+        except Exception:
             raise FileNotFoundError(
-                f"Model artifact not found: {artifact_path}"
+                f"Model artifact not found in storage: {published_model.artifact_path}"
             )
 
         device = pick_device()
 
-        # Load model
-        model_obj = _load_model_artifact(artifact_path, device)
+        # Load model from bytes
+        model_obj = _load_model_from_bytes(model_bytes, device)
 
         # Parse config
         config_dict = None
@@ -150,7 +88,7 @@ class MLState:
         print(f"Loaded published model {model_id[:8]} ({len(labels)} labels) on {device}")
         return loaded
 
-    def run_published_inference(
+    def run_inference(
         self, img_bytes: bytes, published_model
     ) -> list[dict]:
         """Run inference using a published model's artifact, config, lamhat, and labels."""
@@ -203,21 +141,25 @@ def _classify_uncertainty(p: float) -> str:
     return "High"
 
 
-def _load_model_artifact(path: Path, device: str) -> torch.nn.Module:
-    """Load a model from disk (TorchScript or full saved model)."""
+def _load_model_from_bytes(model_bytes: bytes, device: str) -> torch.nn.Module:
+    """Load a model from bytes (TorchScript or full saved model)."""
+    buffer = io.BytesIO(model_bytes)
+
     try:
-        model = torch.jit.load(str(path), map_location=device)
+        buffer.seek(0)
+        model = torch.jit.load(buffer, map_location=device)
         model.eval()
         return model
     except Exception:
         pass
 
-    obj = torch.load(str(path), map_location=device, weights_only=False)
+    buffer.seek(0)
+    obj = torch.load(buffer, map_location=device, weights_only=False)
     if isinstance(obj, torch.nn.Module):
         obj.eval()
         return obj
 
-    raise ValueError(f"Cannot load model from {path}")
+    raise ValueError("Cannot load model from bytes")
 
 
 def _preprocess_with_config(img_bytes: bytes, config: dict | None) -> np.ndarray:

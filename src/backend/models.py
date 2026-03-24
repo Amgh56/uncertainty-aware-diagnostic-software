@@ -123,7 +123,8 @@ class CalibrationJob(Base):
 
     developer = relationship("User", back_populates="calibration_jobs")
     published_model = relationship(
-        "PublishedModel", back_populates="calibration_job", uselist=False
+        "PublishedModel", back_populates="calibration_job", uselist=False,
+        cascade="all, delete-orphan",
     )
 
 

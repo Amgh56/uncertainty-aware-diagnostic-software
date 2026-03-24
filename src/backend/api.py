@@ -1,8 +1,8 @@
 """
 FastAPI backend for the Uncertainty-Aware Diagnostic System.
 
-Runs single-image conformal prediction inference using the pretrained CheXpert model
-and calibrated lamhat loaded once at server startup.
+Uses published models with conformal prediction for uncertainty-aware
+multi-label medical image classification.
 
 Usage:
     cd src/backend
@@ -14,9 +14,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from database import Base, engine
-from schemas import HealthResponse
-from supabase_client import ensure_bucket
-from services.ml_service import ml_state
+
+from supabase_client import ensure_buckets
 from routes.auth_routes import router as auth_router
 from routes.patient_routes import router as patient_router
 from routes.prediction_routes import router as prediction_router
@@ -36,13 +35,14 @@ tags_metadata = [
     },
     {
         "name": "Predictions",
-        "description": "Upload chest X-ray images for ML inference, view prediction history and details. "
-        "Uses conformal prediction for uncertainty-aware multi-label classification of 5 diseases.",
+        "description": "Upload medical images for ML inference using published models, "
+        "view prediction history and details. "
+        "Uses conformal prediction for uncertainty-aware multi-label classification.",
     },
     {
         "name": "Developer",
         "description": (
-            "Developer / Researcher mode. Upload a pretrained CheXpert-compatible model (.pth) "
+            "Developer / Researcher mode. Upload a pretrained model (.pth/.pt) "
             "and a labelled calibration dataset (.zip) to run the conformal calibration pipeline "
             "in the background. Download a `lamhat.json` with the calibrated threshold and metrics. "
             "Requires a **developer** role account (`POST /developer/register`)."
@@ -55,22 +55,18 @@ tags_metadata = [
             "clinicians browse and use them for inference; the community can download and reuse them."
         ),
     },
-    {
-        "name": "Health",
-        "description": "Server health check (public, no authentication required).",
-    },
 ]
 
 app = FastAPI(
-    title="Uncertainty-Aware Chest X-ray Diagnostic API",
+    title="Uncertainty-Aware Diagnostic API",
     description=(
-        "REST API for uncertainty-aware chest X-ray diagnosis.\n\n"
-        "Uses a pretrained CheXpert model with **conformal prediction** to provide "
-        "calibrated prediction sets for 5 diseases: "
-        "Cardiomegaly, Edema, Consolidation, Atelectasis, and Pleural Effusion.\n\n"
+        "REST API for uncertainty-aware medical image diagnosis.\n\n"
+        "Developers upload and calibrate models using **conformal prediction**. "
+        "Clinicians use published models to get calibrated prediction sets "
+        "with uncertainty quantification.\n\n"
         "**Authentication:** Most endpoints require a JWT Bearer token obtained via `/auth/login` or `/auth/register`."
     ),
-    version="1.0.0",
+    version="2.0.0",
     openapi_tags=tags_metadata,
 )
 
@@ -98,25 +94,4 @@ app.include_router(model_router)
 @app.on_event("startup")
 def startup() -> None:
     Base.metadata.create_all(bind=engine)
-    ensure_bucket()
-    ml_state.load()
-
-
-@app.get(
-    "/health",
-    response_model=HealthResponse,
-    tags=["Health"],
-    summary="Health check",
-    description="Public endpoint that returns the server status, "
-    "whether the ML model is loaded, the device in use, "
-    "and the calibration parameters (lamhat, alpha).",
-)
-def health():
-    return {
-        "status": "ok",
-        "model_loaded": ml_state.model is not None,
-        "device": ml_state.device,
-        "lamhat": ml_state.lamhat,
-        "alpha": ml_state.alpha,
-        "diseases": ml_state.diseases,
-    }
+    ensure_buckets()

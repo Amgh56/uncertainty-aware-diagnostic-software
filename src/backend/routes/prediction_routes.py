@@ -25,12 +25,12 @@ router = APIRouter(tags=["Predictions"])
 @router.post(
     "/predict",
     response_model=PredictionResponse,
-    summary="Analyse a chest X-ray",
-    description="Upload a chest X-ray image (PNG or JPEG) for a given patient. "
+    summary="Analyse a medical image",
+    description="Upload a medical image (PNG or JPEG) for a given patient. "
     "The image is stored in Supabase Storage, then passed through the "
-    "CheXpert model with conformal prediction to produce uncertainty-aware "
-    "findings for 5 diseases: Cardiomegaly, Edema, Consolidation, "
-    "Atelectasis, and Pleural Effusion.",
+    "specified published model with conformal prediction to produce "
+    "uncertainty-aware findings. Labels, preprocessing config, and "
+    "calibration parameters are all taken from the selected model.",
     responses={
         200: {"description": "Prediction result with findings and uncertainty levels"},
         400: {
@@ -54,7 +54,7 @@ router = APIRouter(tags=["Predictions"])
 async def predict(
     file: UploadFile = File(..., description="Chest X-ray image (PNG or JPEG)"),
     patient_id: int = Form(..., description="ID of the patient this X-ray belongs to"),
-    model_id: str = Form(None, description="Published model ID (optional — omit for legacy model)"),
+    model_id: str = Form(..., description="Published model ID to use for inference"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -66,7 +66,7 @@ async def predict(
         if not img_bytes:
             raise ValueError("Uploaded file is empty")
 
-        return create_prediction(file, img_bytes, patient_id, current_user, db, model_id=model_id)
+        return create_prediction(file, img_bytes, patient_id, current_user, db, model_id)
 
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -82,7 +82,7 @@ async def predict(
     "/history",
     response_model=HistoryResponse,
     summary="Get recent prediction history",
-    description="Return the 10 most recent predictions for the authenticated doctor, "
+    description="Return the 10 most recent predictions for the authenticated user, "
     "including patient info and top finding.",
     responses={
         200: {"description": "List of recent predictions"},

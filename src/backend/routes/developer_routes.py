@@ -22,13 +22,13 @@ from schemas import (
     TokenResponse,
 )
 from services.auth_service import register_user
-from fastapi.responses import FileResponse
+from fastapi.responses import Response
 from services.calibration_service import (
     create_job as svc_create_job,
     delete_job as svc_delete_job,
     get_job as svc_get_job,
     get_job_result as svc_get_job_result,
-    get_validation_artifact_path as svc_get_artifact,
+    get_validation_artifact as svc_get_artifact,
     get_validation_data as svc_get_validation,
     list_jobs as svc_list_jobs,
     regenerate_validation_artifacts as svc_regenerate_validation,
@@ -175,7 +175,7 @@ def download_result(
     "/developer/jobs/{job_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Delete a calibration job",
-    description="Delete the calibration job record and all uploaded files from disk.",
+    description="Delete the calibration job record and all uploaded files.",
     responses={
         204: {"description": "Job deleted successfully"},
         401: {"model": ErrorResponse, "description": "Invalid or expired token"},
@@ -243,8 +243,9 @@ def download_artifact(
     db: Session = Depends(get_db),
     developer: User = Depends(require_developer),
 ):
-    path = svc_get_artifact(job_id, filename, developer, db)
-    media = "application/octet-stream"
-    if filename.endswith(".json"):
-        media = "application/json"
-    return FileResponse(path=str(path), media_type=media, filename=f"{job_id[:8]}_{filename}")
+    data, media_type = svc_get_artifact(job_id, filename, developer, db)
+    return Response(
+        content=data,
+        media_type=media_type,
+        headers={"Content-Disposition": f'attachment; filename="{job_id[:8]}_{filename}"'},
+    )

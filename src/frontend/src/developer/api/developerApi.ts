@@ -289,12 +289,16 @@ export async function toggleModelActive(
 export async function downloadModelArtifact(
   modelId: string,
   token: string,
-): Promise<Blob> {
+): Promise<{ blob: Blob; filename: string }> {
   const response = await fetch(`${API_URL}/models/${modelId}/download`, {
     headers: authHeaders(token),
   });
   if (!response.ok) {
     throw new Error(await parseError(response));
   }
-  return response.blob();
+  const disposition = response.headers.get("Content-Disposition") ?? "";
+  const match = disposition.match(/filename="([^"]+)"/);
+  const filename = match ? match[1] : `model_${modelId.slice(0, 8)}.zip`;
+  const blob = await response.blob();
+  return { blob, filename };
 }
