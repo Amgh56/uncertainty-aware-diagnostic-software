@@ -20,7 +20,7 @@ from conformal_prediction_pipeline import (
 from database import SessionLocal
 from enums import JobStatus
 from models import CalibrationJob, User
-from supabase_client import (
+from azure_client import (
     BUCKET_CALIBRATION,
     BUCKET_MODELS,
     delete_from_bucket,

@@ -172,3 +172,16 @@ export async function getPrediction(predictionId: string, token: string): Promis
   }
   return response.json();
 }
+
+export async function regeneratePrediction(predictionId: number, alpha: number, token: string): Promise<PredictionResponse> {
+  const response = await fetch(`${API_URL}/predictions/${predictionId}/regenerate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders(token) },
+    body: JSON.stringify({ alpha }),
+  });
+  if (!response.ok) {
+    const message = await parseError(response);
+    throw new Error(message);
+  }
+  return response.json();
+}

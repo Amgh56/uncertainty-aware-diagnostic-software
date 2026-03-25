@@ -1,6 +1,7 @@
 """Prediction route handlers: predict, history, detail."""
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from auth import get_current_user
@@ -17,7 +18,13 @@ from services.prediction_service import (
     get_history,
     get_prediction_detail,
     is_supported_upload,
+    regenerate_prediction,
 )
+
+
+class RegenerateRequest(BaseModel):
+    alpha: float
+
 
 router = APIRouter(tags=["Predictions"])
 
@@ -124,3 +131,35 @@ def prediction_detail(
     db: Session = Depends(get_db),
 ):
     return get_prediction_detail(prediction_id, current_user, db)
+
+
+@router.post(
+    "/predictions/{prediction_id}/regenerate",
+    response_model=PredictionDetailResponse,
+    summary="Regenerate prediction with a new alpha",
+    description="Re-applies a new alpha threshold to the stored probabilities of an existing "
+    "prediction. Finds the closest lamhat from the published model's validation sweep, "
+    "recomputes the prediction set, and saves a new Prediction record in the database.",
+    responses={
+        200: {"description": "New prediction record with updated findings"},
+        400: {
+            "model": ErrorResponse,
+            "description": "Invalid alpha, or model has no sweep data",
+        },
+        401: {
+            "model": ErrorResponse,
+            "description": "Invalid or expired token",
+        },
+        404: {
+            "model": ErrorResponse,
+            "description": "Prediction or published model not found",
+        },
+    },
+)
+def regenerate(
+    prediction_id: int,
+    body: RegenerateRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return regenerate_prediction(prediction_id, body.alpha, current_user, db)

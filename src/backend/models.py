@@ -166,6 +166,7 @@ class PublishedModel(Base):
     # Validation outputs
     validation_verdict = Column(String(20), nullable=False)
     validation_metrics_json = Column(Text, nullable=True)
+    validation_sweep_json = Column(Text, nullable=True)
 
     # Visibility & release
     visibility = Column(

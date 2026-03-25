@@ -15,7 +15,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from database import Base, engine
 
-from supabase_client import ensure_buckets
+from azure_client import ensure_buckets
 from routes.auth_routes import router as auth_router
 from routes.patient_routes import router as patient_router
 from routes.prediction_routes import router as prediction_router

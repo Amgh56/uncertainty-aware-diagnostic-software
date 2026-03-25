@@ -25,7 +25,9 @@ export default function PredictionDetail() {
 
   useEffect(() => {
     getPrediction(id!, token!)
-      .then((result) => setData(result))
+      .then((result) => {
+        setData(result);
+      })
       .catch((err: Error) => setError(err.message))
       .finally(() => setLoading(false));
   }, [id, token]);
@@ -226,6 +228,7 @@ export default function PredictionDetail() {
                     </div>
                   </div>
                 </div>
+
               </div>
             </div>
           </section>

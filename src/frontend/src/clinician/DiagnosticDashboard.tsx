@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   predictImage,
+  regeneratePrediction,
   listClinicianModels,
   Patient,
   PredictionResponse,
@@ -42,6 +43,10 @@ export default function DiagnosticDashboard() {
   const [error, setError] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [zoom, setZoom] = useState(100);
+  const [alphaInput, setAlphaInput] = useState<string>("");
+  const [regenerating, setRegenerating] = useState(false);
+  const [regenError, setRegenError] = useState<string | null>(null);
+  const [regenSuccess, setRegenSuccess] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -107,6 +112,7 @@ export default function DiagnosticDashboard() {
         selectedModelId || undefined,
       );
       setResults(data);
+      setAlphaInput(String(data.alpha));
     } catch (requestError) {
       setError((requestError as Error).message || "Failed to connect to the server");
     } finally {
@@ -121,6 +127,9 @@ export default function DiagnosticDashboard() {
     setResults(null);
     setError(null);
     setZoom(100);
+    setAlphaInput("");
+    setRegenError(null);
+    setRegenSuccess(null);
   };
 
   // Number of labels (from selected model or default 5)
@@ -325,7 +334,90 @@ export default function DiagnosticDashboard() {
                 </button>
               )}
 
-              {(patient || image || results) && (
+              {results && results.model_info && (
+                <div style={{ width: "100%", padding: "0.75rem 1rem", background: "#f8fafc", borderRadius: "12px", border: "1px solid #e2e8f0" }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "0.6rem", flexWrap: "wrap" }}>
+                    <span style={{ fontSize: "0.82rem", fontWeight: 500, color: "#475569" }}>α =</span>
+                    <input
+                      type="number"
+                      min={0.01}
+                      max={0.99}
+                      step={0.01}
+                      value={alphaInput}
+                      disabled={regenerating}
+                      onChange={(e) => { setAlphaInput(e.target.value); setRegenError(null); setRegenSuccess(null); }}
+                      style={{
+                        width: "72px", padding: "0.38rem 0.5rem",
+                        border: "1px solid #cbd5e1", borderRadius: "8px",
+                        fontSize: "0.85rem", color: "#1e293b", background: "#fff",
+                      }}
+                    />
+                    <span style={{ fontSize: "0.8rem", color: "#64748b" }}>
+                      {Math.round((1 - parseFloat(alphaInput || "0.1")) * 100)}% coverage
+                    </span>
+
+                    <button
+                      disabled={regenerating || alphaInput === String(results.alpha)}
+                      onClick={async () => {
+                        setRegenerating(true);
+                        setRegenError(null);
+                        setRegenSuccess(null);
+                        try {
+                          const result = await regeneratePrediction(results.id, parseFloat(alphaInput), token!);
+                          setResults(result);
+                          setAlphaInput(String(result.alpha));
+                          setRegenSuccess(`Prediction set updated for α = ${result.alpha}`);
+                        } catch (err: unknown) {
+                          setRegenError(err instanceof Error ? err.message : "Update failed");
+                        } finally {
+                          setRegenerating(false);
+                        }
+                      }}
+                      style={{
+                        minWidth: "120px", padding: "0.42rem 1.1rem", fontSize: "0.82rem", fontWeight: 600,
+                        color: (regenerating || alphaInput === String(results.alpha)) ? "#94a3b8" : "#fff",
+                        background: (regenerating || alphaInput === String(results.alpha)) ? "#e2e8f0" : "#2563eb",
+                        border: "1px solid transparent",
+                        borderColor: (regenerating || alphaInput === String(results.alpha)) ? "#cbd5e1" : "#2563eb",
+                        borderRadius: "8px",
+                        cursor: (regenerating || alphaInput === String(results.alpha)) ? "not-allowed" : "pointer",
+                        display: "flex", alignItems: "center", justifyContent: "center", gap: "0.35rem",
+                        transition: "all 0.15s ease",
+                      }}
+                    >
+                      {regenerating && <span className="spinner" style={{ width: 14, height: 14 }} />}
+                      {regenerating ? "Updating..." : "Update Results"}
+                    </button>
+
+                    <button
+                      onClick={handleReset}
+                      style={{
+                        minWidth: "120px", padding: "0.42rem 1.1rem", fontSize: "0.82rem", fontWeight: 600,
+                        color: "#2563eb", background: "#fff",
+                        border: "1px solid #bfdbfe", borderRadius: "8px",
+                        cursor: "pointer",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        transition: "all 0.15s ease",
+                      }}
+                    >
+                      Reset
+                    </button>
+                  </div>
+
+                  <p style={{ margin: "0.5rem 0 0", fontSize: "0.72rem", color: "#94a3b8", textAlign: "center" }}>
+                    Adjust the alpha risk level to update the prediction set and uncertainty thresholds.
+                  </p>
+
+                  {regenError && (
+                    <p style={{ margin: "0.35rem 0 0", fontSize: "0.78rem", color: "#dc2626", textAlign: "center" }}>{regenError}</p>
+                  )}
+                  {regenSuccess && !regenError && (
+                    <p style={{ margin: "0.35rem 0 0", fontSize: "0.78rem", color: "#059669", textAlign: "center" }}>{regenSuccess}</p>
+                  )}
+                </div>
+              )}
+
+              {(patient || image || results) && !(results && results.model_info) && (
                 <button className="reset-btn" onClick={handleReset}>
                   Reset
                 </button>
@@ -498,6 +590,7 @@ export default function DiagnosticDashboard() {
                       )}
                     </div>
                   </div>
+
                 </div>
               )}
             </div>

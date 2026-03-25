@@ -13,7 +13,11 @@ from sqlalchemy.orm import Session
 
 from enums import JobStatus, ModelVisibility
 from models import CalibrationJob, User, PublishedModel
-from supabase_client import (
+from services.calibration_service import (
+    _load_validation_artifacts,
+    _compute_validation_sweep,
+)
+from azure_client import (
     BUCKET_CALIBRATION,
     BUCKET_MODELS,
     download_from_bucket,
@@ -102,6 +106,17 @@ def publish_model(
     lamhat = result_data["lamhat"]
     alpha = result_data["alpha"]
 
+    # Compute and store validation sweep for alpha lookup at regeneration time
+    validation_sweep_json = None
+    try:
+        artifacts = _load_validation_artifacts(calibration_job_id)
+        if artifacts:
+            cal_probs, cal_labels, cal_pos_mask, cal_label_names = artifacts
+            sweep_result = _compute_validation_sweep(cal_probs, cal_labels, cal_pos_mask, cal_label_names, alpha)
+            validation_sweep_json = json.dumps(sweep_result["sweep"])
+    except Exception:
+        pass
+
     # Download model from calibration bucket
     try:
         model_bytes = download_from_bucket(
@@ -157,6 +172,7 @@ def publish_model(
         lamhat_result_json=job.result_json,
         validation_verdict=verdict,
         validation_metrics_json=json.dumps(metrics),
+        validation_sweep_json=validation_sweep_json,
         visibility=visibility.value,
         is_active=True,
         consent_given_at=now if consent_agreed else None,
