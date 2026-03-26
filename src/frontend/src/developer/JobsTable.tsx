@@ -108,7 +108,7 @@ export default function JobsTable({ token, onNewJob }: JobsTableProps) {
       <table className="dev-jobs-table">
         <thead>
           <tr>
-            <th>Job ID</th>
+            <th>Job Name</th>
             <th>Model</th>
             <th>Dataset</th>
             <th>Alpha</th>
@@ -121,7 +121,7 @@ export default function JobsTable({ token, onNewJob }: JobsTableProps) {
         <tbody>
           {jobs.map((job) => (
             <tr key={job.id}>
-              <td className="dev-job-id" title={job.id}>{job.id.slice(0, 8)}&hellip;</td>
+              <td className="dev-job-id">{job.display_name ?? job.id.slice(0, 8)}</td>
               <td className="dev-job-filename" title={job.model_filename}>{job.model_filename}</td>
               <td className="dev-job-filename" title={job.dataset_filename}>{job.dataset_filename}</td>
               <td>{job.alpha}</td>

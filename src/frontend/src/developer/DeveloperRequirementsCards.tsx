@@ -65,7 +65,7 @@ img002.jpg,0,1,1`}</pre>
           <li>Minimum <strong>50</strong> labelled images</li>
           <li>Every filename must match a file in <code>images/</code></li>
           <li>Number of label columns must match the model&apos;s output classes</li>
-          <li>Max size: <strong>2 GB</strong></li>
+          <li>Max size: <strong>5 GB</strong></li>
         </ul>
       </div>
 

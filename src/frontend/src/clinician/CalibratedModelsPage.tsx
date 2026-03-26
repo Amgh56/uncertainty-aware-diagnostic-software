@@ -185,8 +185,18 @@ export default function CalibratedModelsPage() {
                 <div className="model-detail-row">
                   <strong>{"Description:"}</strong> {selectedModel.description}
                 </div>
-                <div className="model-detail-row">
-                  <strong>{"Labels:"}</strong> {selectedModel.num_labels}
+                <div className="model-detail-row" style={{ display: "flex", alignItems: "flex-start", gap: "0.5rem", flexWrap: "wrap" }}>
+                  <strong style={{ whiteSpace: "nowrap" }}>{"Labels:"}</strong>
+                  <div className="publish-labels-list" style={{ margin: 0 }}>
+                    {(selectedModel.labels && selectedModel.labels.length > 0
+                      ? selectedModel.labels
+                      : []
+                    ).map((l, i) => (
+                      <span key={i} className="publish-label-chip">
+                        {l}
+                      </span>
+                    ))}
+                  </div>
                 </div>
                 <div className="model-detail-row">
                   <strong>{"Alpha:"}</strong> {selectedModel.alpha} | <strong>{"Lamhat:"}</strong> {selectedModel.lamhat.toFixed(4)}

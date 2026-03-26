@@ -2,6 +2,7 @@ import { API_URL } from "../../config";
 
 export interface CalibrationJob {
   id: string;
+  display_name: string | null;
   status: string;
   model_filename: string;
   config_filename: string | null;

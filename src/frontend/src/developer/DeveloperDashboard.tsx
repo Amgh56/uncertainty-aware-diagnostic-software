@@ -36,7 +36,7 @@ export default function DeveloperDashboard() {
 
     try {
       const job = await createCalibrationJob(modelFile, datasetFile, configFile, alphaNum, token!);
-      setSubmitSuccess(`Job ${job.id.slice(0, 8)} queued successfully.`);
+      setSubmitSuccess(`${job.display_name ?? "Job"} queued successfully.`);
       setModelFile(null);
       setConfigFile(null);
       setDatasetFile(null);
@@ -83,7 +83,7 @@ export default function DeveloperDashboard() {
             <UploadCard
               title="Calibration Dataset"
               accept=".zip"
-              hint="ZIP with images/ folder + labels.csv. Min 50 images, max 2 GB."
+              hint="ZIP with images/ folder + labels.csv. Min 50 images, max 5 GB."
               file={datasetFile}
               onChange={setDatasetFile}
               disabled={submitting}

@@ -158,7 +158,7 @@ export default function DiagnosticDashboard() {
             <div className="model-selector-empty">
               <p>No published models available for clinical use yet.</p>
               <p style={{ fontSize: "0.8rem", color: "#94a3b8" }}>
-                The legacy built-in model will be used. Ask a developer to publish a model for clinician use.
+                Ask a developer to publish a model for clinician use.
               </p>
             </div>
           ) : (
@@ -171,7 +171,7 @@ export default function DiagnosticDashboard() {
                   setResults(null);
                 }}
               >
-                <option value="">-- Use legacy built-in model --</option>
+                <option value="">-- Select a model --</option>
                 {availableModels.map((m) => (
                   <option key={m.id} value={m.id}>
                     {m.name} (v{m.version}) — {m.modality}
@@ -580,12 +580,6 @@ export default function DiagnosticDashboard() {
                         <div>
                           <span className="tech-label">Model</span>
                           <span className="tech-value">{results.model_info.name} v{results.model_info.version}</span>
-                        </div>
-                      )}
-                      {!results.model_info && (
-                        <div>
-                          <span className="tech-label">Model</span>
-                          <span className="tech-value">Legacy (built-in)</span>
                         </div>
                       )}
                     </div>

@@ -42,11 +42,11 @@ export default function PublishModelDialog({
   const [error, setError] = useState<string | null>(null);
 
   const labels = validation.label_names;
-  const isUnreliable = validation.verdict === "unreliable";
+  const isBlocked = validation.verdict === "unreliable" || validation.verdict === "review";
   const needsConsent = visibility !== "private";
   const effectiveModality = modality === "Other" ? customModality.trim() : modality;
   const canSubmit =
-    !isUnreliable &&
+    !isBlocked &&
     !submitting &&
     name.trim() &&
     description.trim() &&
@@ -105,9 +105,9 @@ export default function PublishModelDialog({
           </button>
         </div>
 
-        {isUnreliable && (
+        {isBlocked && (
           <div className="publish-dialog-warning">
-            This calibration has an "unreliable" verdict and cannot be published. Please recalibrate with a larger or higher-quality dataset.
+            This model cannot be published. Only models with a <strong>Good</strong> verdict are allowed to be published. Please recalibrate with a larger or higher-quality dataset to improve the model's reliability.
           </div>
         )}
 
@@ -121,7 +121,7 @@ export default function PublishModelDialog({
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g., CheXpert Chest X-Ray Classifier"
               maxLength={150}
-              disabled={isUnreliable}
+              disabled={isBlocked}
             />
           </div>
 
@@ -133,7 +133,7 @@ export default function PublishModelDialog({
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Short description of what the model does"
               rows={2}
-              disabled={isUnreliable}
+              disabled={isBlocked}
             />
           </div>
 
@@ -147,7 +147,7 @@ export default function PublishModelDialog({
                 onChange={(e) => setVersion(e.target.value)}
                 placeholder="1.0.0"
                 maxLength={20}
-                disabled={isUnreliable}
+                disabled={isBlocked}
               />
             </div>
             <div className="publish-field">
@@ -159,7 +159,7 @@ export default function PublishModelDialog({
                   setModality(e.target.value);
                   if (e.target.value !== "Other") setCustomModality("");
                 }}
-                disabled={isUnreliable}
+                disabled={isBlocked}
               >
                 {MODALITY_OPTIONS.map((m) => (
                   <option key={m} value={m}>{m}</option>
@@ -172,7 +172,7 @@ export default function PublishModelDialog({
                   onChange={(e) => setCustomModality(e.target.value)}
                   placeholder="Enter your modality type"
                   maxLength={100}
-                  disabled={isUnreliable}
+                  disabled={isBlocked}
                   style={{ marginTop: 6 }}
                 />
               )}
@@ -187,7 +187,7 @@ export default function PublishModelDialog({
               onChange={(e) => setIntendedUse(e.target.value)}
               placeholder="e.g., Screening aid for thoracic conditions in adult patients"
               rows={2}
-              disabled={isUnreliable}
+              disabled={isBlocked}
             />
           </div>
 
@@ -216,7 +216,7 @@ export default function PublishModelDialog({
           </div>
 
           {/* Visibility */}
-          <fieldset className="publish-field" disabled={isUnreliable}>
+          <fieldset className="publish-field" disabled={isBlocked}>
             <legend>Who should have access to this model?</legend>
             <div className="publish-radio-group">
               {[
@@ -243,7 +243,7 @@ export default function PublishModelDialog({
           </fieldset>
 
           {/* Consent */}
-          {needsConsent && !isUnreliable && (
+          {needsConsent && !isBlocked && (
             <div className="publish-consent-box">
               <h4>Release Consent</h4>
               <p>By releasing this model, you acknowledge that:</p>

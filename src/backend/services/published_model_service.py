@@ -14,8 +14,8 @@ from sqlalchemy.orm import Session
 from enums import JobStatus, ModelVisibility
 from models import CalibrationJob, User, PublishedModel
 from services.calibration_service import (
-    _load_validation_artifacts,
-    _compute_validation_sweep,
+    load_validation_artifacts,
+    compute_validation_sweep,
 )
 from azure_client import (
     BUCKET_CALIBRATION,
@@ -77,18 +77,18 @@ def publish_model(
             detail="This calibration job has already been published",
         )
 
-    # Check verdict — block unreliable
+    # Check verdict — only "good" models can be published
     verdict = job.validation_verdict
     if verdict is None:
         raise HTTPException(
             status_code=400,
             detail="Validation has not been run yet. Please validate the calibration first.",
         )
-    if verdict == "unreliable":
+    if verdict != "good":
         raise HTTPException(
             status_code=400,
-            detail="Cannot publish a model with 'unreliable' validation verdict. "
-            "Please recalibrate with a larger or higher-quality dataset.",
+            detail="Only models with a 'good' validation verdict can be published. "
+            "Please recalibrate with a larger or higher-quality dataset to improve reliability.",
         )
 
     # Consent required for non-private visibility
@@ -109,10 +109,10 @@ def publish_model(
     # Compute and store validation sweep for alpha lookup at regeneration time
     validation_sweep_json = None
     try:
-        artifacts = _load_validation_artifacts(calibration_job_id)
+        artifacts = load_validation_artifacts(calibration_job_id)
         if artifacts:
             cal_probs, cal_labels, cal_pos_mask, cal_label_names = artifacts
-            sweep_result = _compute_validation_sweep(cal_probs, cal_labels, cal_pos_mask, cal_label_names, alpha)
+            sweep_result = compute_validation_sweep(cal_probs, cal_labels, cal_pos_mask, cal_label_names, alpha)
             validation_sweep_json = json.dumps(sweep_result["sweep"])
     except Exception:
         pass
@@ -440,6 +440,7 @@ def _model_to_summary(model: PublishedModel, developer_name: str) -> dict:
         "version": model.version,
         "modality": model.modality,
         "num_labels": model.num_labels,
+        "labels": json.loads(model.labels_json) if model.labels_json else [],
         "alpha": model.alpha,
         "lamhat": model.lamhat,
         "validation_verdict": model.validation_verdict,

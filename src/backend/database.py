@@ -12,7 +12,13 @@ load_dotenv(PROJECT_ROOT / ".env")
 
 DATABASE_URL = os.environ["DATABASE_URL"]
 
-engine = create_engine(DATABASE_URL)
+engine = create_engine(
+    DATABASE_URL,
+    pool_size=3,
+    max_overflow=7,
+    pool_pre_ping=True,
+    pool_recycle=300,
+)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 

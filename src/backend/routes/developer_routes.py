@@ -86,7 +86,7 @@ async def register_developer(
         "└── labels.csv   (columns: filename + any label columns)\n"
         "```\n"
         "Minimum 50 labelled images.\n\n"
-        "**Size limits:** model ≤ 500 MB, dataset ≤ 2 GB."
+        "**Size limits:** model ≤ 500 MB, dataset ≤ 5 GB."
     ),
     responses={
         201: {"description": "Job created and queued"},

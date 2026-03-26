@@ -30,6 +30,7 @@ export interface ClinicianModel {
   version: string;
   modality: string;
   num_labels: number;
+  labels: string[];
   alpha: number;
   lamhat: number;
   validation_verdict: string;

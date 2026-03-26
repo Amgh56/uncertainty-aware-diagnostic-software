@@ -57,7 +57,6 @@ export default function ModelLibraryPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [modalityFilter, setModalityFilter] = useState("");
-  const [verdictFilter, setVerdictFilter] = useState("");
   const [selectedModel, setSelectedModel] = useState<PublishedModelDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
 
@@ -68,7 +67,6 @@ export default function ModelLibraryPage() {
       ? listCommunityModels(token, {
           search: search || undefined,
           modality: modalityFilter || undefined,
-          verdict: verdictFilter || undefined,
         })
       : listMyModels(token);
 
@@ -76,7 +74,7 @@ export default function ModelLibraryPage() {
       .then((res) => setModels(res.models))
       .catch(() => setModels([]))
       .finally(() => setLoading(false));
-  }, [token, tab, search, modalityFilter, verdictFilter]);
+  }, [token, tab, search, modalityFilter]);
 
   async function handleViewDetail(modelId: string) {
     if (!token) return;
@@ -188,15 +186,6 @@ export default function ModelLibraryPage() {
               {modalities.map((m) => (
                 <option key={m} value={m}>{m}</option>
               ))}
-            </select>
-            <select
-              className="model-lib-filter-select"
-              value={verdictFilter}
-              onChange={(e) => setVerdictFilter(e.target.value)}
-            >
-              <option value="">All Verdicts</option>
-              <option value="good">Good</option>
-              <option value="review">Review</option>
             </select>
           </div>
         )}

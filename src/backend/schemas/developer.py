@@ -8,6 +8,7 @@ from enums import JobStatus
 
 class JobCreateResponse(BaseModel):
     id: str
+    display_name: Optional[str] = None
     status: JobStatus
     model_filename: str
     config_filename: Optional[str] = None
@@ -21,6 +22,7 @@ class JobCreateResponse(BaseModel):
 
 class JobStatusResponse(BaseModel):
     id: str
+    display_name: Optional[str] = None
     status: JobStatus = Field(..., examples=["queued"])
     model_filename: str
     config_filename: Optional[str] = None

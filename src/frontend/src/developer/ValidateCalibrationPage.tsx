@@ -179,7 +179,7 @@ export default function ValidateCalibrationPage() {
               <option value="">-- Select a job --</option>
               {completedJobs.map((job) => (
                 <option key={job.id} value={job.id}>
-                  {job.model_filename} — {job.dataset_filename} — alpha {job.alpha}
+                  {job.display_name ?? job.id.slice(0, 8)} — alpha {job.alpha}
                   {job.completed_at ? ` — ${new Date(job.completed_at).toLocaleDateString()}` : ""}
                 </option>
               ))}

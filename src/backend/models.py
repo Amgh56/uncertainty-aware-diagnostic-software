@@ -106,6 +106,7 @@ class CalibrationJob(Base):
     )
 
     id = Column(String(36), primary_key=True)
+    display_name = Column(String(100), nullable=True)
     developer_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     status = Column(String(20), nullable=False, default=JobStatus.QUEUED.value)
     model_filename = Column(String(255), nullable=False)
