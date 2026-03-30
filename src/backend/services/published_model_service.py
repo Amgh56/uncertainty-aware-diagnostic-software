@@ -432,6 +432,35 @@ def _is_expanding_visibility(old: str, new: str) -> bool:
     return False
 
 
+def update_model_details(
+    model_id: str,
+    description: str | None,
+    intended_use: str | None,
+    developer: User,
+    db: Session,
+) -> PublishedModel:
+    """Update editable text fields on a published model."""
+    model = (
+        db.query(PublishedModel)
+        .filter(
+            PublishedModel.id == model_id,
+            PublishedModel.developer_id == developer.id,
+        )
+        .first()
+    )
+    if model is None:
+        raise HTTPException(status_code=404, detail="Published model not found")
+
+    if description is not None:
+        model.description = description
+    if intended_use is not None:
+        model.intended_use = intended_use
+    model.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(model)
+    return model
+
+
 def _model_to_summary(model: PublishedModel, developer_name: str) -> dict:
     return {
         "id": model.id,
@@ -439,6 +468,7 @@ def _model_to_summary(model: PublishedModel, developer_name: str) -> dict:
         "description": model.description,
         "version": model.version,
         "modality": model.modality,
+        "intended_use": model.intended_use,
         "num_labels": model.num_labels,
         "labels": json.loads(model.labels_json) if model.labels_json else [],
         "alpha": model.alpha,

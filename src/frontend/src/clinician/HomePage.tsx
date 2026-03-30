@@ -98,7 +98,7 @@ export default function HomePage() {
               <circle cx="12" cy="7" r="4" />
             </svg>
             <p className="empty-title">{search ? "No patients match your search" : "No patients yet"}</p>
-            <p className="empty-hint">Use the sidebar New Patient view to add your first patient and run a prediction.</p>
+            <p className="empty-hint">Use the sidebar New Diagnosis view to add a patient and run a prediction.</p>
           </div>
         )}
 

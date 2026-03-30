@@ -185,6 +185,9 @@ export default function CalibratedModelsPage() {
                 <div className="model-detail-row">
                   <strong>{"Description:"}</strong> {selectedModel.description}
                 </div>
+                <div className="model-detail-row">
+                  <strong>{"Intended Use:"}</strong> {selectedModel.intended_use}
+                </div>
                 <div className="model-detail-row" style={{ display: "flex", alignItems: "flex-start", gap: "0.5rem", flexWrap: "wrap" }}>
                   <strong style={{ whiteSpace: "nowrap" }}>{"Labels:"}</strong>
                   <div className="publish-labels-list" style={{ margin: 0 }}>

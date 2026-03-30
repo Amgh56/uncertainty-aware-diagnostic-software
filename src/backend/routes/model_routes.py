@@ -11,6 +11,7 @@ from schemas import (
     ErrorResponse,
     PublishModelRequest,
     ToggleActiveRequest,
+    UpdateModelDetailsRequest,
     UpdateVisibilityRequest,
 )
 from services.published_model_service import (
@@ -21,6 +22,7 @@ from services.published_model_service import (
     list_my_models,
     publish_model,
     toggle_active,
+    update_model_details,
     update_visibility,
 )
 
@@ -135,6 +137,29 @@ def model_detail(
     current_user: User = Depends(get_current_user),
 ):
     return get_model_detail(model_id, current_user, db)
+
+
+@router.patch(
+    "/models/{model_id}/details",
+    summary="Edit model description and intended use",
+    description="Update the description and/or intended use of a published model. Only the owner can edit.",
+    responses={
+        200: {"description": "Model details updated"},
+        404: {"model": ErrorResponse, "description": "Model not found"},
+    },
+)
+def edit_details(
+    model_id: str,
+    body: UpdateModelDetailsRequest,
+    db: Session = Depends(get_db),
+    developer: User = Depends(require_developer),
+):
+    model = update_model_details(model_id, body.description, body.intended_use, developer, db)
+    return {
+        "id": model.id,
+        "description": model.description,
+        "intended_use": model.intended_use,
+    }
 
 
 @router.patch(

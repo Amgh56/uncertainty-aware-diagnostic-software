@@ -427,7 +427,7 @@ body {
 }
 
 .clinician-layout .patient-form-wrapper {
-  padding: 46px 24px;
+  padding: 46px 40px;
 }
 
 .clinician-layout .patient-form-icon {
@@ -440,6 +440,243 @@ body {
 
 .clinician-layout .patient-form .auth-submit-btn {
   margin-top: 10px;
+}
+
+/* ── Patient Selector ──────────────────────────────── */
+
+.patient-selector {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  text-align: center;
+  width: 100%;
+}
+
+.patient-selector-icon {
+  width: 54px;
+  height: 54px;
+  border-radius: 18px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 12px;
+}
+
+.patient-selector-tabs {
+  display: flex;
+  gap: 4px;
+  margin: 20px auto 16px;
+  background: #f1f5f9;
+  border-radius: 10px;
+  padding: 4px;
+  width: 280px;
+}
+
+.patient-selector-tab {
+  flex: 1;
+  padding: 10px 16px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.patient-selector-tab:hover {
+  color: #334155;
+}
+
+.patient-selector-tab--active {
+  background: #fff;
+  color: #1e293b;
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.patient-selector-body {
+  width: 100%;
+  max-width: 100%;
+  text-align: left;
+}
+
+.patient-selector-search-wrap {
+  position: relative;
+  margin-bottom: 10px;
+}
+
+.patient-selector-search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.patient-selector-search {
+  width: 100%;
+  padding: 10px 12px 10px 36px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  color: #1e293b;
+  background: #fff;
+  transition: border-color 0.15s ease;
+  box-sizing: border-box;
+}
+
+.patient-selector-search:focus {
+  outline: none;
+  border-color: #93c5fd;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.08);
+}
+
+.patient-selector-list {
+  max-height: 320px;
+  overflow-y: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  margin-bottom: 12px;
+}
+
+.patient-selector-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 18px;
+  cursor: pointer;
+  transition: background 0.12s ease;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.patient-selector-item:last-child {
+  border-bottom: none;
+}
+
+.patient-selector-item:hover {
+  background: #f8fafc;
+}
+
+.patient-selector-item--selected {
+  background: #eff6ff;
+}
+
+.patient-selector-item--selected:hover {
+  background: #dbeafe;
+}
+
+.patient-selector-item-info {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.patient-selector-item-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.patient-selector-item-mrn {
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.patient-selector-item-count {
+  font-size: 0.72rem;
+  color: #94a3b8;
+  white-space: nowrap;
+}
+
+.patient-selector-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 24px 12px;
+  color: #94a3b8;
+  font-size: 0.83rem;
+}
+
+.patient-selector-body .auth-submit-btn {
+  margin-top: 4px;
+  width: auto;
+  padding: 10px 32px;
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.patient-selector .patient-form {
+  width: 100%;
+  max-width: 100%;
+  text-align: left;
+}
+
+.patient-selector .patient-form .auth-submit-btn {
+  margin-top: 10px;
+  width: auto;
+  padding: 12px 48px;
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* ── Patient Step (full-width) ────────────────────── */
+
+.patient-step-panel {
+  width: 100%;
+}
+
+/* ── Patient Banner ───────────────────────────────── */
+
+.patient-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 12px;
+  margin-bottom: 16px;
+}
+
+.patient-banner-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.patient-banner-name {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.patient-banner-mrn {
+  font-size: 0.8rem;
+  color: #64748b;
+}
+
+.patient-banner-change {
+  padding: 6px 16px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #2563eb;
+  background: #fff;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.patient-banner-change:hover {
+  background: #dbeafe;
 }
 
 .dashboard-floating-shell {

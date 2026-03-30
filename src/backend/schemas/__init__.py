@@ -37,6 +37,7 @@ from schemas.published_model import (
     PublishedModelResponse,
     PublishedModelSummary,
     ToggleActiveRequest,
+    UpdateModelDetailsRequest,
     UpdateVisibilityRequest,
 )
 
@@ -69,5 +70,6 @@ __all__ = [
     "PublishedModelResponse",
     "PublishedModelSummary",
     "ToggleActiveRequest",
+    "UpdateModelDetailsRequest",
     "UpdateVisibilityRequest",
 ]

@@ -8,7 +8,7 @@ import {
   ClinicianModel,
 } from "./api/clinicianApi";
 import { useAuth } from "../context/AuthContext";
-import PatientForm from "./PatientForm";
+import PatientSelector from "./PatientSelector";
 import ClinicianLayout from "./ClinicianLayout";
 
 const uncertaintyColors: Record<string, { bg: string; text: string; border: string }> = {
@@ -137,109 +137,130 @@ export default function DiagnosticDashboard() {
 
   return (
     <ClinicianLayout
-      title="New Patient"
-      subtitle="Create a patient record and upload a new chest X-ray to start a diagnostic case."
+      title="New Diagnosis"
+      subtitle={!patient
+        ? "Select a patient to start your diagnosis."
+        : "Upload a chest X-ray and run a prediction."}
     >
-        {/* ── Model Selector ── */}
-        <div className="model-selector-section">
-          <div className="model-selector-header">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="3" y="7" width="18" height="14" rx="2" />
-              <path d="M7 7V5a2 2 0 012-2h6a2 2 0 012 2v2" />
-            </svg>
-            <h3>Select Diagnostic Model</h3>
-          </div>
-
-          {modelsLoading ? (
-            <div style={{ padding: "12px 0", color: "#64748b", fontSize: "0.85rem" }}>
-              Loading available models...
+        {/* ══════ Step 1: Patient Selection (full-width) ══════ */}
+        {!patient && (
+          <section className="panel patient-step-panel">
+            <div className="patient-form-wrapper">
+              <PatientSelector onPatientReady={(p) => setPatient(p)} />
             </div>
-          ) : availableModels.length === 0 ? (
-            <div className="model-selector-empty">
-              <p>No published models available for clinical use yet.</p>
-              <p style={{ fontSize: "0.8rem", color: "#94a3b8" }}>
-                Ask a developer to publish a model for clinician use.
-              </p>
-            </div>
-          ) : (
-            <>
-              <select
-                className="model-selector-dropdown"
-                value={selectedModelId}
-                onChange={(e) => {
-                  setSelectedModelId(e.target.value);
-                  setResults(null);
-                }}
-              >
-                <option value="">-- Select a model --</option>
-                {availableModels.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.name} (v{m.version}) — {m.modality}
-                  </option>
-                ))}
-              </select>
+          </section>
+        )}
 
-              {selectedModel && (
-                <div className="model-info-card">
-                  <div className="model-info-top">
-                    <span className="model-info-name">{selectedModel.name}</span>
-                    <span className="model-info-version">v{selectedModel.version}</span>
-                    {(() => {
-                      const vs = verdictStyles[selectedModel.validation_verdict];
-                      return vs ? (
-                        <span style={{
-                          padding: "2px 8px", borderRadius: 12, fontSize: 11,
-                          fontWeight: 600, color: vs.color, background: vs.bg,
-                        }}>
-                          {selectedModel.validation_verdict.charAt(0).toUpperCase() +
-                            selectedModel.validation_verdict.slice(1)}
-                        </span>
-                      ) : null;
-                    })()}
-                  </div>
-                  <p className="model-info-desc">{selectedModel.description}</p>
-                  <div className="model-info-meta">
-                    <span>Modality: {selectedModel.modality}</span>
-                    <span>Labels: {selectedModel.num_labels}</span>
-                    <span>Alpha: {selectedModel.alpha}</span>
-                    <span>Coverage: {Math.round((1 - selectedModel.alpha) * 100)}%</span>
-                    {selectedModel.developer_name && (
-                      <span>By: {selectedModel.developer_name}</span>
-                    )}
-                  </div>
-                </div>
-              )}
-            </>
-          )}
-        </div>
-
-        <div className="dash-grid">
-          <section className="panel">
-            <div className="panel-header">
-              <div>
-                <h2 className="panel-title">Chest X-ray</h2>
-                {patient ? (
-                  <p className="panel-subtitle">
-                    Patient: {patient.first_name} {patient.last_name} (MRN: {patient.mrn})
-                  </p>
-                ) : (
-                  <p className="panel-subtitle">Enter patient information to begin</p>
-                )}
+        {/* ══════ Step 2: Model + Upload + Results ══════ */}
+        {patient && (
+          <>
+            {/* Patient banner */}
+            <div className="patient-banner">
+              <div className="patient-banner-info">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
+                  <circle cx="12" cy="7" r="4" />
+                </svg>
+                <span className="patient-banner-name">{patient.first_name} {patient.last_name}</span>
+                <span className="patient-banner-mrn">MRN: {patient.mrn}</span>
               </div>
-              {image && (
-                <select className="mode-select" defaultValue="original">
-                  <option value="original">Original</option>
-                  <option value="enhanced">Enhanced</option>
-                </select>
+              <button className="patient-banner-change" onClick={handleReset}>
+                Change Patient
+              </button>
+            </div>
+
+            {/* Model Selector */}
+            <div className="model-selector-section">
+              <div className="model-selector-header">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="7" width="18" height="14" rx="2" />
+                  <path d="M7 7V5a2 2 0 012-2h6a2 2 0 012 2v2" />
+                </svg>
+                <h3>Select Diagnostic Model</h3>
+              </div>
+
+              {modelsLoading ? (
+                <div style={{ padding: "12px 0", color: "#64748b", fontSize: "0.85rem" }}>
+                  Loading available models...
+                </div>
+              ) : availableModels.length === 0 ? (
+                <div className="model-selector-empty">
+                  <p>No published models available for clinical use yet.</p>
+                  <p style={{ fontSize: "0.8rem", color: "#94a3b8" }}>
+                    Ask a developer to publish a model for clinician use.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <select
+                    className="model-selector-dropdown"
+                    value={selectedModelId}
+                    onChange={(e) => {
+                      setSelectedModelId(e.target.value);
+                      setResults(null);
+                    }}
+                  >
+                    <option value="">-- Select a model --</option>
+                    {availableModels.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.name} (v{m.version}) — {m.modality}
+                      </option>
+                    ))}
+                  </select>
+
+                  {selectedModel && (
+                    <div className="model-info-card">
+                      <div className="model-info-top">
+                        <span className="model-info-name">{selectedModel.name}</span>
+                        <span className="model-info-version">v{selectedModel.version}</span>
+                        {(() => {
+                          const vs = verdictStyles[selectedModel.validation_verdict];
+                          return vs ? (
+                            <span style={{
+                              padding: "2px 8px", borderRadius: 12, fontSize: 11,
+                              fontWeight: 600, color: vs.color, background: vs.bg,
+                            }}>
+                              {selectedModel.validation_verdict.charAt(0).toUpperCase() +
+                                selectedModel.validation_verdict.slice(1)}
+                            </span>
+                          ) : null;
+                        })()}
+                      </div>
+                      <p className="model-info-desc">{selectedModel.description}</p>
+                      <div className="model-info-meta">
+                        <span>Modality: {selectedModel.modality}</span>
+                        <span>Labels: {selectedModel.num_labels}</span>
+                        <span>Alpha: {selectedModel.alpha}</span>
+                        <span>Coverage: {Math.round((1 - selectedModel.alpha) * 100)}%</span>
+                        {selectedModel.developer_name && (
+                          <span>By: {selectedModel.developer_name}</span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </div>
 
-            <div className="panel-body">
-              {!patient ? (
-                <div className="patient-form-wrapper">
-                  <PatientForm onPatientReady={(p) => setPatient(p)} />
+            <div className="dash-grid">
+              <section className="panel">
+                <div className="panel-header">
+                  <div>
+                    <h2 className="panel-title">{selectedModel ? selectedModel.name : "\u00A0"}</h2>
+                    <p className="panel-subtitle">
+                      Patient: {patient.first_name} {patient.last_name} (MRN: {patient.mrn})
+                    </p>
+                  </div>
+                  {image && (
+                    <select className="mode-select" defaultValue="original">
+                      <option value="original">Original</option>
+                      <option value="enhanced">Enhanced</option>
+                    </select>
+                  )}
                 </div>
-              ) : !imagePreview ? (
+
+                <div className="panel-body">
+                  {!imagePreview ? (
                 <div
                   className={`dropzone ${dragOver ? "dropzone-active" : ""}`}
                   onDrop={handleDrop}
@@ -603,6 +624,8 @@ export default function DiagnosticDashboard() {
               x
             </button>
           </div>
+        )}
+          </>
         )}
     </ClinicianLayout>
   );

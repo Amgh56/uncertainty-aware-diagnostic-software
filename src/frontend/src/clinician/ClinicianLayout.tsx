@@ -248,10 +248,10 @@ export default function ClinicianLayout({ title, subtitle, children }: Clinician
               to="/dashboard"
               className={`clinician-nav-item${newPatientActive ? " clinician-nav-item--active" : ""}`}
               aria-current={newPatientActive ? "page" : undefined}
-              title={collapsed ? "New Patient" : undefined}
+              title={collapsed ? "New Diagnosis" : undefined}
             >
               <PatientIcon />
-              <span>New Patient</span>
+              <span>New Diagnosis</span>
             </Link>
             <Link
               to="/models"

@@ -165,6 +165,7 @@ export interface PublishedModelSummary {
   description: string;
   version: string;
   modality: string;
+  intended_use: string;
   num_labels: number;
   alpha: number;
   lamhat: number;
@@ -285,6 +286,22 @@ export async function toggleModelActive(
   if (!response.ok) {
     throw new Error(await parseError(response));
   }
+}
+
+export async function updateModelDetails(
+  modelId: string,
+  details: { description?: string; intended_use?: string },
+  token: string,
+): Promise<{ id: string; description: string; intended_use: string }> {
+  const response = await fetch(`${API_URL}/models/${modelId}/details`, {
+    method: "PATCH",
+    headers: { ...authHeaders(token), "Content-Type": "application/json" },
+    body: JSON.stringify(details),
+  });
+  if (!response.ok) {
+    throw new Error(await parseError(response));
+  }
+  return response.json();
 }
 
 export async function downloadModelArtifact(

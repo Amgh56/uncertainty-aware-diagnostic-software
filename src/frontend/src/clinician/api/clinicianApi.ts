@@ -34,6 +34,7 @@ export interface ClinicianModel {
   alpha: number;
   lamhat: number;
   validation_verdict: string;
+  intended_use: string;
   visibility: string;
   is_active: boolean;
   developer_name: string | null;

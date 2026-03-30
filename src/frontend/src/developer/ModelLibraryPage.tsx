@@ -7,6 +7,7 @@ import {
   getModelDetail,
   downloadModelArtifact,
   updateModelVisibility,
+  updateModelDetails,
   toggleModelActive,
   type PublishedModelSummary,
   type PublishedModelDetail,
@@ -59,6 +60,10 @@ export default function ModelLibraryPage() {
   const [modalityFilter, setModalityFilter] = useState("");
   const [selectedModel, setSelectedModel] = useState<PublishedModelDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [editDescription, setEditDescription] = useState("");
+  const [editIntendedUse, setEditIntendedUse] = useState("");
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!token) return;
@@ -79,6 +84,7 @@ export default function ModelLibraryPage() {
   async function handleViewDetail(modelId: string) {
     if (!token) return;
     setDetailLoading(true);
+    setEditing(false);
     try {
       const detail = await getModelDetail(modelId, token);
       setSelectedModel(detail);
@@ -86,6 +92,34 @@ export default function ModelLibraryPage() {
       alert("Failed to load model details.");
     } finally {
       setDetailLoading(false);
+    }
+  }
+
+  function startEditing() {
+    if (!selectedModel) return;
+    setEditDescription(selectedModel.description);
+    setEditIntendedUse(selectedModel.intended_use);
+    setEditing(true);
+  }
+
+  async function handleSaveDetails() {
+    if (!token || !selectedModel) return;
+    setSaving(true);
+    try {
+      const result = await updateModelDetails(
+        selectedModel.id,
+        { description: editDescription, intended_use: editIntendedUse },
+        token,
+      );
+      setSelectedModel({ ...selectedModel, description: result.description, intended_use: result.intended_use });
+      setModels((prev) =>
+        prev.map((m) => m.id === selectedModel.id ? { ...m, description: result.description } : m),
+      );
+      setEditing(false);
+    } catch (err) {
+      alert((err as Error).message);
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -304,10 +338,28 @@ export default function ModelLibraryPage() {
                   <strong>Modality:</strong> {selectedModel.modality}
                 </div>
                 <div className="model-detail-row">
-                  <strong>Description:</strong> {selectedModel.description}
+                  <strong>Description:</strong>{" "}
+                  {editing ? (
+                    <textarea
+                      value={editDescription}
+                      onChange={(e) => setEditDescription(e.target.value)}
+                      style={{ width: "100%", marginTop: 4, padding: 8, borderRadius: 6, border: "1px solid #e2e8f0", minHeight: 60, fontFamily: "inherit", fontSize: "inherit" }}
+                    />
+                  ) : (
+                    selectedModel.description
+                  )}
                 </div>
                 <div className="model-detail-row">
-                  <strong>Intended Use:</strong> {selectedModel.intended_use}
+                  <strong>Intended Use:</strong>{" "}
+                  {editing ? (
+                    <textarea
+                      value={editIntendedUse}
+                      onChange={(e) => setEditIntendedUse(e.target.value)}
+                      style={{ width: "100%", marginTop: 4, padding: 8, borderRadius: 6, border: "1px solid #e2e8f0", minHeight: 60, fontFamily: "inherit", fontSize: "inherit" }}
+                    />
+                  ) : (
+                    selectedModel.intended_use
+                  )}
                 </div>
                 <div className="model-detail-row">
                   <strong>Labels:</strong>{" "}
@@ -362,9 +414,24 @@ export default function ModelLibraryPage() {
               </div>
 
               <div className="publish-dialog-actions">
-                <button className="val-btn val-btn-outline" onClick={() => setSelectedModel(null)}>
+                <button className="val-btn val-btn-outline" onClick={() => { setSelectedModel(null); setEditing(false); }}>
                   Close
                 </button>
+                {tab === "mine" && !editing && (
+                  <button className="val-btn val-btn-outline" onClick={startEditing}>
+                    Edit Details
+                  </button>
+                )}
+                {tab === "mine" && editing && (
+                  <>
+                    <button className="val-btn val-btn-outline" onClick={() => setEditing(false)}>
+                      Cancel
+                    </button>
+                    <button className="val-btn val-btn-primary" onClick={handleSaveDetails} disabled={saving}>
+                      {saving ? "Saving..." : "Save"}
+                    </button>
+                  </>
+                )}
                 <button className="val-btn val-btn-primary" onClick={() => handleDownload(selectedModel.id, selectedModel.name)}>
                   Download Package (.zip)
                 </button>

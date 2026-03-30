@@ -75,3 +75,8 @@ class UpdateVisibilityRequest(BaseModel):
 
 class ToggleActiveRequest(BaseModel):
     is_active: bool
+
+
+class UpdateModelDetailsRequest(BaseModel):
+    description: Optional[str] = Field(None, min_length=1)
+    intended_use: Optional[str] = Field(None, min_length=1)
