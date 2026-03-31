@@ -9,6 +9,7 @@ import ResetPasswordPage from "./auth/ResetPasswordPage";
 import VerifyEmailPage from "./auth/VerifyEmailPage";
 import HomePage from "./clinician/HomePage";
 import DiagnosticDashboard from "./clinician/DiagnosticDashboard";
+import PatientProfile from "./clinician/PatientProfile";
 import PredictionDetail from "./clinician/PredictionDetail";
 import CalibratedModelsPage from "./clinician/CalibratedModelsPage";
 import DeveloperDashboard from "./developer/DeveloperDashboard";
@@ -35,6 +36,9 @@ export default function App() {
           } />
           <Route path="/dashboard" element={
             <ProtectedRoute><DiagnosticDashboard /></ProtectedRoute>
+          } />
+          <Route path="/patients/:id" element={
+            <ProtectedRoute><PatientProfile /></ProtectedRoute>
           } />
           <Route path="/predictions/:id" element={
             <ProtectedRoute><PredictionDetail /></ProtectedRoute>

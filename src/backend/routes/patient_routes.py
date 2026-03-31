@@ -12,7 +12,7 @@ from schemas import (
     PatientListResponse,
     PatientResponse,
 )
-from services.patient_service import create_or_get_patient, list_patients_with_stats
+from services.patient_service import create_or_get_patient, get_patient_predictions, list_patients_with_stats
 
 router = APIRouter(tags=["Patients"])
 
@@ -63,3 +63,27 @@ def list_patients(
     db: Session = Depends(get_db),
 ):
     return list_patients_with_stats(current_user, db)
+
+
+@router.get(
+    "/patients/{patient_id}/predictions",
+    summary="List all predictions for a patient",
+    description="Return every prediction for the given patient, newest first.",
+    responses={
+        200: {"description": "List of predictions"},
+        401: {
+            "model": ErrorResponse,
+            "description": "Invalid or expired token",
+        },
+        404: {
+            "model": ErrorResponse,
+            "description": "Patient not found",
+        },
+    },
+)
+def patient_predictions(
+    patient_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return get_patient_predictions(patient_id, current_user, db)

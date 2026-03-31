@@ -175,6 +175,22 @@ export async function getPrediction(predictionId: string, token: string): Promis
   return response.json();
 }
 
+export interface PatientPredictionsResponse {
+  patient: Patient;
+  predictions: Omit<PredictionResponse, "patient">[];
+}
+
+export async function getPatientPredictions(patientId: number, token: string): Promise<PatientPredictionsResponse> {
+  const response = await fetch(`${API_URL}/patients/${patientId}/predictions`, {
+    headers: authHeaders(token),
+  });
+  if (!response.ok) {
+    const message = await parseError(response);
+    throw new Error(message);
+  }
+  return response.json();
+}
+
 export async function regeneratePrediction(predictionId: number, alpha: number, token: string): Promise<PredictionResponse> {
   const response = await fetch(`${API_URL}/predictions/${predictionId}/regenerate`, {
     method: "POST",
