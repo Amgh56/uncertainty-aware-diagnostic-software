@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
+import { Stethoscope } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 
 interface ClinicianLayoutProps {
@@ -39,20 +40,6 @@ function DashboardIcon() {
   );
 }
 
-function PatientIcon() {
-  return (
-    <svg className="clinician-nav-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path
-        d="M20 21V19C20 16.7909 18.2091 15 16 15H8C5.79086 15 4 16.7909 4 19V21"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="1.8" />
-    </svg>
-  );
-}
 
 function ModelsIcon() {
   return (
@@ -210,6 +197,15 @@ export default function ClinicianLayout({ title, subtitle, children }: Clinician
 
       <aside className="clinician-sidebar">
         <div className="clinician-sidebar-top">
+          <div className="clinician-brand">
+            <div className="clinician-brand-icon">
+              <PulseIcon />
+            </div>
+            <div className="clinician-brand-copy">
+              <span className="clinician-brand-title">SafeDx</span>
+            </div>
+          </div>
+
           <button
             type="button"
             className="clinician-sidebar-toggle"
@@ -219,15 +215,6 @@ export default function ClinicianLayout({ title, subtitle, children }: Clinician
           >
             <HamburgerIcon />
           </button>
-
-          <div className="clinician-brand">
-            <div className="clinician-brand-icon">
-              <PulseIcon />
-            </div>
-            <div className="clinician-brand-copy">
-              <span className="clinician-brand-title">SafeDx</span>
-            </div>
-          </div>
         </div>
 
         <div className="clinician-sidebar-divider" aria-hidden="true" />
@@ -250,7 +237,7 @@ export default function ClinicianLayout({ title, subtitle, children }: Clinician
               aria-current={newPatientActive ? "page" : undefined}
               title={collapsed ? "New Diagnosis" : undefined}
             >
-              <PatientIcon />
+              <Stethoscope className="clinician-nav-icon" />
               <span>New Diagnosis</span>
             </Link>
             <Link

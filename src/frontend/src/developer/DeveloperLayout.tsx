@@ -249,6 +249,15 @@ export default function DeveloperLayout({ title, subtitle, children, activeSecti
 
       <aside className="developer-sidebar">
         <div className="developer-sidebar-top">
+          <div className="developer-brand">
+            <div className="developer-brand-icon">
+              <PulseIcon />
+            </div>
+            <div className="developer-brand-copy">
+              <span className="developer-brand-title">SafeDx</span>
+            </div>
+          </div>
+
           <button
             type="button"
             className="developer-sidebar-toggle"
@@ -258,15 +267,6 @@ export default function DeveloperLayout({ title, subtitle, children, activeSecti
           >
             <HamburgerIcon />
           </button>
-
-          <div className="developer-brand">
-            <div className="developer-brand-icon">
-              <PulseIcon />
-            </div>
-            <div className="developer-brand-copy">
-              <span className="developer-brand-title">SafeDx</span>
-            </div>
-          </div>
         </div>
 
         <div className="developer-sidebar-divider" aria-hidden="true" />
