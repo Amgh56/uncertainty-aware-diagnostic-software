@@ -53,7 +53,6 @@ export default function DeveloperHowToPage() {
         {/* Header */}
         <div className="guide-tutorial-header">
           <div className="guide-tutorial-badges">
-            <span className="guide-badge guide-badge--dev">DEVELOPER GUIDE</span>
             <span className="guide-badge guide-badge--time">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="12" cy="12" r="10" />

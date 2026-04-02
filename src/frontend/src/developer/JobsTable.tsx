@@ -38,7 +38,7 @@ interface JobsTableProps {
 export default function JobsTable({ token, onNewJob }: JobsTableProps) {
   const [jobs, setJobs] = useState<CalibrationJob[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
 
   async function fetchJobs() {
     try {
@@ -63,7 +63,7 @@ export default function JobsTable({ token, onNewJob }: JobsTableProps) {
     if (!hasActive && onNewJob) onNewJob();
   }, [jobs, onNewJob]);
 
-  async function handleDownload(jobId) {
+  async function handleDownload(jobId: string) {
     try {
       const blob = await downloadJobResult(jobId, token);
       const url = URL.createObjectURL(blob);
@@ -71,13 +71,14 @@ export default function JobsTable({ token, onNewJob }: JobsTableProps) {
       a.href = url;
       a.download = `lamhat_${jobId.slice(0, 8)}.json`;
       a.click();
+
       URL.revokeObjectURL(url);
     } catch {
       alert("Result not available yet.");
     }
   }
 
-  async function handleDelete(jobId) {
+  async function handleDelete(jobId: string) {
     if (!window.confirm("Delete this job and all uploaded files?")) return;
     try {
       await deleteJob(jobId, token);

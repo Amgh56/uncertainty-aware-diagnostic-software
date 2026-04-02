@@ -34,7 +34,7 @@ export default function PredictionDetail() {
 
   if (loading) {
     return (
-      <ClinicianLayout title="Case Detail" subtitle="Loading the saved diagnostic case.">
+      <ClinicianLayout title="Case Detail" subtitle="Loading the saved diagnostic case." pill="CASE DETAIL">
         <div className="panel clinician-feedback-panel">
           <div className="empty-state">
             <div className="spinner-large" />
@@ -47,7 +47,7 @@ export default function PredictionDetail() {
 
   if (error || !data) {
     return (
-      <ClinicianLayout title="Case Detail" subtitle="We couldn't load this saved case.">
+      <ClinicianLayout title="Case Detail" subtitle="We couldn't load this saved case." pill="CASE DETAIL">
         <div className="panel clinician-feedback-panel">
           <div className="empty-state">
             <p className="empty-title">Error: {error ?? "Unknown error"}</p>
@@ -66,7 +66,7 @@ export default function PredictionDetail() {
     <ClinicianLayout
       title="Case Detail"
       subtitle={`${data.patient.first_name} ${data.patient.last_name} (MRN: ${data.patient.mrn})`}
-    >
+         >
         <div className="dash-grid">
           <section className="panel">
             <div className="panel-header">

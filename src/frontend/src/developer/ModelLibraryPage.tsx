@@ -185,6 +185,7 @@ export default function ModelLibraryPage() {
       subtitle="Browse validated, calibrated models shared by the SafeDx community, or manage your own."
     >
       <div className="val-container">
+        <div className="profile-content-card">
         {/* Tabs */}
         <div className="model-lib-tabs">
           <button
@@ -310,6 +311,7 @@ export default function ModelLibraryPage() {
             ))}
           </div>
         )}
+        </div>
 
         {/* Detail Modal */}
         {selectedModel && (

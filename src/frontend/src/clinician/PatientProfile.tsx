@@ -25,10 +25,7 @@ export default function PatientProfile() {
   const predictions = data?.predictions ?? [];
 
   return (
-    <ClinicianLayout
-      title={patient ? `${patient.first_name} ${patient.last_name}` : "Patient Profile"}
-      subtitle={patient ? `MRN: ${patient.mrn}` : "Loading patient data..."}
-    >
+    <ClinicianLayout title="" subtitle="">
       <button
         className="profile-back-btn"
         onClick={() => navigate("/home")}
@@ -36,6 +33,24 @@ export default function PatientProfile() {
         <ArrowLeft size={18} />
         <span>Back to Dashboard</span>
       </button>
+
+      {patient && (
+        <div className="patient-overview-card">
+          <span className="patient-overview-pill">PATIENT OVERVIEW</span>
+          <div className="patient-overview-body">
+            <div className="patient-overview-left">
+              <h1 className="patient-overview-name">
+                {patient.first_name} {patient.last_name}
+              </h1>
+              <p className="patient-overview-mrn">MRN: {patient.mrn}</p>
+            </div>
+            <div className="patient-overview-stat-card">
+              <span className="patient-overview-stat-label">History</span>
+              <span className="patient-overview-stat-value">{predictions.length} cases</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {loading && (
         <div className="panel" style={{ padding: 60, textAlign: "center" }}>
@@ -64,12 +79,8 @@ export default function PatientProfile() {
 
       {!loading && !error && predictions.length > 0 && (
         <section className="profile-predictions">
-          <h3 className="profile-section-title">
-            Diagnosis History
-            <span className="profile-count-badge">{predictions.length}</span>
-          </h3>
-
-          <div className="profile-card-grid">
+          <div className="profile-content-card">
+            <div className="profile-card-grid">
             {predictions.map((pred) => (
               <div key={pred.id} className="profile-prediction-card">
                 <div className="profile-card-image-wrap">
@@ -117,6 +128,7 @@ export default function PatientProfile() {
                 </div>
               </div>
             ))}
+            </div>
           </div>
         </section>
       )}

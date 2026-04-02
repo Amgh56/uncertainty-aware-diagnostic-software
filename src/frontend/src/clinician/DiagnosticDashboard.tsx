@@ -141,6 +141,17 @@ export default function DiagnosticDashboard() {
       subtitle={!patient
         ? "Select a patient to start your diagnosis."
         : "Upload a chest X-ray and run a prediction."}
+      patientBar={patient ? (
+        <div className="patient-banner-info">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
+            <circle cx="12" cy="7" r="4" />
+          </svg>
+          <span className="patient-banner-name">{patient.first_name} {patient.last_name}</span>
+          <span className="patient-banner-mrn">MRN: {patient.mrn}</span>
+          <button className="patient-banner-change" onClick={handleReset}>Change Patient</button>
+        </div>
+      ) : undefined}
     >
         {/* ══════ Step 1: Patient Selection (full-width) ══════ */}
         {!patient && (
@@ -154,21 +165,6 @@ export default function DiagnosticDashboard() {
         {/* ══════ Step 2: Model + Upload + Results ══════ */}
         {patient && (
           <>
-            {/* Patient banner */}
-            <div className="patient-banner">
-              <div className="patient-banner-info">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
-                  <circle cx="12" cy="7" r="4" />
-                </svg>
-                <span className="patient-banner-name">{patient.first_name} {patient.last_name}</span>
-                <span className="patient-banner-mrn">MRN: {patient.mrn}</span>
-              </div>
-              <button className="patient-banner-change" onClick={handleReset}>
-                Change Patient
-              </button>
-            </div>
-
             {/* Model Selector */}
             <div className="model-selector-section">
               <div className="model-selector-header">

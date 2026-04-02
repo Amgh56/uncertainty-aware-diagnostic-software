@@ -731,7 +731,89 @@
   background: var(--surface-muted);
 }
 
+/* ── Page Banner Card (shared across all pages) ── */
+.page-banner-card {
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.07);
+  padding: 24px 28px 20px;
+  margin-bottom: 0;
+  width: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.page-banner-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 14px;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #2563eb;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  width: fit-content;
+  margin-bottom: 4px;
+}
+
+.page-banner-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.page-banner-patient {
+  flex-shrink: 0;
+}
+
+.page-banner-title {
+  font-size: 28px;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1.15;
+  margin: 0;
+}
+
+.page-banner-subtitle {
+  font-size: 14px;
+  color: #64748b;
+  margin: 0;
+}
+
+@media (max-width: 760px) {
+  .page-banner-card {
+    padding: 18px 16px 16px;
+    border-radius: 12px;
+    margin-bottom: 16px;
+  }
+
+  .page-banner-title {
+    font-size: 22px;
+  }
+}
+
 /* ── Patient Profile ── */
+
+.profile-content-card {
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.07);
+  padding: 24px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+@media (max-width: 760px) {
+  .profile-content-card {
+    padding: 16px;
+    border-radius: 12px;
+  }
+}
 
 .profile-back-btn {
   display: inline-flex;
@@ -891,6 +973,103 @@
 
   .profile-card-body {
     padding: 14px 16px 16px;
+  }
+}
+
+/* ── Patient Overview Card ──────────────────────────────── */
+.patient-overview-card {
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  padding: 24px 28px;
+  margin-bottom: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.patient-overview-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 14px;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #2563eb;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  width: fit-content;
+}
+
+.patient-overview-body {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.patient-overview-left {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.patient-overview-name {
+  font-size: 36px;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1.1;
+  margin: 0;
+}
+
+.patient-overview-mrn {
+  font-size: 14px;
+  color: #64748b;
+  margin: 0;
+}
+
+.patient-overview-stat-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 14px 24px;
+  min-width: 110px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.patient-overview-stat-label {
+  font-size: 12px;
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+.patient-overview-stat-value {
+  font-size: 20px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+@media (max-width: 760px) {
+  .patient-overview-card {
+    padding: 18px 16px;
+  }
+
+  .patient-overview-name {
+    font-size: 28px;
+  }
+
+  .patient-overview-body {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .patient-overview-stat-card {
+    width: 100%;
+    text-align: left;
   }
 }
 

@@ -1507,6 +1507,13 @@ body {
   background: #f8faff;
   border: 1px solid #e2e8f0;
   border-radius: 14px;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+}
+
+.guide-tip-card:hover {
+  border-color: #bfdbfe;
+  box-shadow: 0 8px 24px rgba(37, 99, 235, 0.08);
+  transform: translateY(-2px);
 }
 
 .guide-tip-header {

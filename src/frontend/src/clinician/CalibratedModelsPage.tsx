@@ -66,6 +66,7 @@ export default function CalibratedModelsPage() {
       subtitle={"Browse all calibrated models available for diagnostic use."}
     >
       <div className="val-container">
+        <div className="profile-content-card">
         {/* Filters */}
         <div className="model-lib-filters">
           <input
@@ -225,6 +226,7 @@ export default function CalibratedModelsPage() {
             </div>
           </div>
         )}
+        </div>
       </div>
     </ClinicianLayout>
   );

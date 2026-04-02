@@ -6,6 +6,8 @@ import { useAuth } from "../context/AuthContext";
 interface ClinicianLayoutProps {
   title: string;
   subtitle: string;
+  pill?: string;
+  patientBar?: ReactNode;
   children: ReactNode;
 }
 
@@ -132,7 +134,7 @@ function HamburgerIcon() {
   );
 }
 
-export default function ClinicianLayout({ title, subtitle, children }: ClinicianLayoutProps) {
+export default function ClinicianLayout({ title, subtitle, pill, patientBar, children }: ClinicianLayoutProps) {
   const { pathname } = useLocation();
   const { doctor, logout } = useAuth();
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem("clinician-sidebar-collapsed") === "1");
@@ -291,12 +293,20 @@ export default function ClinicianLayout({ title, subtitle, children }: Clinician
 
       <div className="clinician-content-shell">
         <main className="clinician-main">
-          <header className="clinician-page-header">
-            <div>
-              <h1 className="clinician-page-title">{title}</h1>
-              <p className="clinician-page-subtitle">{subtitle}</p>
+          {title && (
+            <div className="page-banner-card">
+              {pill && <span className="page-banner-pill">{pill}</span>}
+              <div className="page-banner-row">
+                <div>
+                  <h1 className="page-banner-title">{title}</h1>
+                  <p className="page-banner-subtitle">{subtitle}</p>
+                </div>
+                {patientBar && (
+                  <div className="page-banner-patient">{patientBar}</div>
+                )}
+              </div>
             </div>
-          </header>
+          )}
 
           {children}
         </main>

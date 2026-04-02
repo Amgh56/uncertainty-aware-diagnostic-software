@@ -6,6 +6,7 @@ import { tocItems } from "./DeveloperHowToPage";
 interface DeveloperLayoutProps {
   title: string;
   subtitle: string;
+  pill?: string;
   children: ReactNode;
   activeSection?: string;
 }
@@ -185,7 +186,7 @@ function HamburgerIcon() {
   );
 }
 
-export default function DeveloperLayout({ title, subtitle, children, activeSection }: DeveloperLayoutProps) {
+export default function DeveloperLayout({ title, subtitle, pill, children, activeSection }: DeveloperLayoutProps) {
   const { pathname } = useLocation();
   const { doctor, logout } = useAuth();
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem("developer-sidebar-collapsed") === "1");
@@ -371,12 +372,11 @@ export default function DeveloperLayout({ title, subtitle, children, activeSecti
 
       <div className="developer-content-shell">
         <main className="developer-main">
-          <header className="developer-page-header">
-            <div>
-              <h1 className="developer-page-title">{title}</h1>
-              <p className="developer-page-subtitle">{subtitle}</p>
-            </div>
-          </header>
+          <div className="page-banner-card">
+            {pill && <span className="page-banner-pill">{pill}</span>}
+            <h1 className="page-banner-title">{title}</h1>
+            <p className="page-banner-subtitle">{subtitle}</p>
+          </div>
 
           {children}
         </main>
