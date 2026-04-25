@@ -1,5 +1,3 @@
-"""Auth route handlers: register, login, me, forgot/reset password, email OTP verification."""
-
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 

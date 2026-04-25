@@ -6,7 +6,6 @@ import {
   ValidationData,
   fetchValidationData,
   listJobs,
-  regenerateValidation,
 } from "./api/developerApi";
 import PublishModelDialog from "./PublishModelDialog";
 import {
@@ -30,9 +29,7 @@ export default function ValidateCalibrationPage() {
   const [selectedJobId, setSelectedJobId] = useState<string>("");
   const [validation, setValidation] = useState<ValidationData | null>(null);
   const [loading, setLoading] = useState(false);
-  const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [needsRegenerate, setNeedsRegenerate] = useState(false);
 
   const formatAlpha = (value: unknown) => {
     const numericValue = Number(value);
@@ -56,61 +53,35 @@ export default function ValidateCalibrationPage() {
     }
     setLoading(true);
     setError(null);
-    setNeedsRegenerate(false);
     fetchValidationData(selectedJobId, token)
-      .then((data) => {
-        setValidation(data);
-      })
-      .catch((err) => {
-        if (err.message.includes("not found") || err.message.includes("regenerate")) {
-          setNeedsRegenerate(true);
-        } else {
-          setError(err.message);
-        }
-      })
+      .then((data) => setValidation(data))
+      .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, [selectedJobId, token]);
 
-  async function handleRegenerate() {
-    if (!selectedJobId || !token) return;
-    setGenerating(true);
-    setError(null);
-    try {
-      const data = await regenerateValidation(selectedJobId, token);
-      setValidation(data);
-      setNeedsRegenerate(false);
-    } catch (err) {
-      setError((err as Error).message);
-    } finally {
-      setGenerating(false);
-    }
-  }
-
-  function downloadChart(ref: React.RefObject<HTMLDivElement | null>, name: string) {
+  function downloadChartAsPng(ref: React.RefObject<HTMLDivElement | null>, name: string) {
     const container = ref.current;
     if (!container) return;
 
-    // Recharts nests SVGs — grab the last (deepest) one which has the actual chart
+    // Recharts renders as SVG internally — we convert it to PNG via canvas
     const allSvgs = container.querySelectorAll("svg");
-    const svg = allSvgs[allSvgs.length - 1];
-    if (!svg) return;
+    const chartSvg = allSvgs[allSvgs.length - 1];
+    if (!chartSvg) return;
 
-    const clone = svg.cloneNode(true) as SVGElement;
+    const clone = chartSvg.cloneNode(true) as SVGElement;
     clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
-    // Copy computed dimensions
-    const box = svg.getBoundingClientRect();
+    const box = chartSvg.getBoundingClientRect();
     clone.setAttribute("width", String(box.width));
     clone.setAttribute("height", String(box.height));
 
-    // Embed white background
-    const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-    rect.setAttribute("width", String(box.width));
-    rect.setAttribute("height", String(box.height));
-    rect.setAttribute("fill", "#ffffff");
-    clone.insertBefore(rect, clone.firstChild);
+    const background = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+    background.setAttribute("width", String(box.width));
+    background.setAttribute("height", String(box.height));
+    background.setAttribute("fill", "#ffffff");
+    clone.insertBefore(background, clone.firstChild);
 
-    // Inline computed styles so the SVG renders correctly standalone
-    const origTexts = svg.querySelectorAll("text");
+    // Inline text styles so they render correctly outside the browser context
+    const origTexts = chartSvg.querySelectorAll("text");
     const cloneTexts = clone.querySelectorAll("text");
     origTexts.forEach((orig, i) => {
       const cs = window.getComputedStyle(orig);
@@ -121,8 +92,9 @@ export default function ValidateCalibrationPage() {
     });
 
     const serialized = new XMLSerializer().serializeToString(clone);
-    const svgBlob = new Blob([serialized], { type: "image/svg+xml;charset=utf-8" });
-    const svgUrl = URL.createObjectURL(svgBlob);
+    const intermediateUrl = URL.createObjectURL(
+      new Blob([serialized], { type: "image/svg+xml;charset=utf-8" })
+    );
     const image = new Image();
 
     image.onload = () => {
@@ -130,26 +102,24 @@ export default function ValidateCalibrationPage() {
       const canvas = document.createElement("canvas");
       canvas.width = Math.max(1, Math.round(box.width * scale));
       canvas.height = Math.max(1, Math.round(box.height * scale));
-      const context = canvas.getContext("2d");
-      if (!context) {
-        URL.revokeObjectURL(svgUrl);
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        URL.revokeObjectURL(intermediateUrl);
         return;
       }
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+      URL.revokeObjectURL(intermediateUrl);
 
-      context.fillStyle = "#ffffff";
-      context.fillRect(0, 0, canvas.width, canvas.height);
-      context.drawImage(image, 0, 0, canvas.width, canvas.height);
-      URL.revokeObjectURL(svgUrl);
-
-      const pngUrl = canvas.toDataURL("image/png");
       const a = document.createElement("a");
-      a.href = pngUrl;
+      a.href = canvas.toDataURL("image/png");
       a.download = `${name}_${selectedJobId.slice(0, 8)}.png`;
       a.click();
     };
 
-    image.onerror = () => URL.revokeObjectURL(svgUrl);
-    image.src = svgUrl;
+    image.onerror = () => URL.revokeObjectURL(intermediateUrl);
+    image.src = intermediateUrl;
   }
 
   function downloadValidationJSON() {
@@ -225,22 +195,6 @@ export default function ValidateCalibrationPage() {
         {error && (
           <div className="val-card val-error-card">
             <p>{error}</p>
-          </div>
-        )}
-
-        {needsRegenerate && !loading && (
-          <div className="val-card val-center">
-            <p style={{ marginBottom: 16 }}>
-              Validation artifacts are not available for this job. Generate them now to view plots and metrics.
-            </p>
-            <button
-              className="val-btn val-btn-primary"
-              onClick={handleRegenerate}
-              disabled={generating}
-            >
-              {generating ? "Generating..." : "Generate Validation Plots"}
-            </button>
-            {generating && <p className="val-hint">This may take a few minutes — re-running inference on your dataset.</p>}
           </div>
         )}
 
@@ -489,13 +443,13 @@ export default function ValidateCalibrationPage() {
                   </svg>
                   Validation Report (.json)
                 </button>
-                <button className="val-btn val-btn-outline" onClick={() => downloadChart(fnrChartRef, "fnr_vs_alpha")}>
+                <button className="val-btn val-btn-outline" onClick={() => downloadChartAsPng(fnrChartRef, "fnr_vs_alpha")}>
                   <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
                     <path d="M10 3v10m0 0l-3-3m3 3l3-3M4 15h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                   FNR Plot (.png)
                 </button>
-                <button className="val-btn val-btn-outline" onClick={() => downloadChart(sizeChartRef, "set_size_vs_alpha")}>
+                <button className="val-btn val-btn-outline" onClick={() => downloadChartAsPng(sizeChartRef, "set_size_vs_alpha")}>
                   <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
                     <path d="M10 3v10m0 0l-3-3m3 3l3-3M4 15h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
@@ -505,7 +459,7 @@ export default function ValidateCalibrationPage() {
             </div>
 
             {/* ── Publish Section ── */}
-            <div className={`val-card ${validation.verdict === "unreliable" ? "val-publish-disabled" : "val-publish-card"}`}>
+            <div className={`val-card ${validation.verdict === "good" ? "val-publish-card" : "val-publish-disabled"}`}>
               <h3 className="val-card-title">
                 <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
                   <rect x="3" y="5" width="14" height="12" rx="2" stroke="currentColor" strokeWidth="1.5" fill="none" />
@@ -513,12 +467,7 @@ export default function ValidateCalibrationPage() {
                 </svg>
                 Publish This Model
               </h3>
-              {validation.verdict === "unreliable" ? (
-                <p style={{ color: "#dc2626", margin: 0 }}>
-                  This calibration has an "unreliable" verdict and cannot be published.
-                  Please recalibrate with a larger or higher-quality dataset.
-                </p>
-              ) : selectedJob?.is_published || publishedSuccess ? (
+              {selectedJob?.is_published || publishedSuccess ? (
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2.5" strokeLinecap="round">
                     <polyline points="20 6 9 17 4 12" />
@@ -527,14 +476,10 @@ export default function ValidateCalibrationPage() {
                     This model has been published successfully.
                   </span>
                 </div>
-              ) : (
+              ) : validation.verdict === "good" ? (
                 <>
                   <p style={{ margin: "0 0 12px" }}>
-                    Your calibration passed validation with verdict:{" "}
-                    <strong style={{ color: validation.verdict === "good" ? "#059669" : "#d97706" }}>
-                      {validation.verdict.toUpperCase()}
-                    </strong>.
-                    {validation.verdict === "review" && " Publishing is allowed but proceed with caution."}
+                    Your calibration passed with a <strong style={{ color: "#059669" }}>GOOD</strong> verdict.
                     {" "}You can now publish this as a reusable model package.
                   </p>
                   <button
@@ -544,6 +489,16 @@ export default function ValidateCalibrationPage() {
                     Publish Model
                   </button>
                 </>
+              ) : validation.verdict === "review" ? (
+                <p style={{ color: "#d97706", margin: 0 }}>
+                  This calibration has a <strong>"review"</strong> verdict and cannot be published.
+                  Please recalibrate with a larger or higher-quality dataset to achieve a "good" verdict.
+                </p>
+              ) : (
+                <p style={{ color: "#dc2626", margin: 0 }}>
+                  This calibration has an <strong>"unreliable"</strong> verdict and cannot be published.
+                  Please recalibrate with a larger or higher-quality dataset.
+                </p>
               )}
             </div>
 

@@ -96,13 +96,12 @@ def my_models(
 def community_models(
     search: str | None = None,
     modality: str | None = None,
-    verdict: str | None = None,
     sort: str = "newest",
     db: Session = Depends(get_db),
     developer: User = Depends(require_developer),
 ):
     return {
-        "models": list_community_models(db, search, modality, verdict, sort)
+        "models": list_community_models(db, search, modality, sort)
     }
 
 

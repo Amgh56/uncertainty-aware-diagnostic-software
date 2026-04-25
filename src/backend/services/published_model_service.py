@@ -1,5 +1,3 @@
-"""Service layer for publishing, listing, and managing Published Model Packages."""
-
 import hashlib
 import io
 import json
@@ -13,14 +11,12 @@ from sqlalchemy.orm import Session
 
 from enums import JobStatus, ModelVisibility
 from models import CalibrationJob, User, PublishedModel
-from services.calibration_service import (
-    load_validation_artifacts,
-    compute_validation_sweep,
-)
+from services.calibration_service import result_path
 from azure_client import (
     BUCKET_CALIBRATION,
     BUCKET_MODELS,
     download_from_bucket,
+    iter_blob_chunks,
     upload_to_bucket,
 )
 
@@ -36,7 +32,10 @@ CONSENT_TEXT = (
     "Real clinical deployment requires formal review beyond this platform's validation."
 )
 CONSENT_TEXT_HASH = hashlib.sha256(CONSENT_TEXT.encode()).hexdigest()
+VALIDATION_CACHE_FILENAME = "validation_result.json"
 
+
+# ── Publishing ───────────────────────────────────────────────
 
 def publish_model(
     calibration_job_id: str,
@@ -106,16 +105,7 @@ def publish_model(
     lamhat = result_data["lamhat"]
     alpha = result_data["alpha"]
 
-    # Compute and store validation sweep for alpha lookup at regeneration time
-    validation_sweep_json = None
-    try:
-        artifacts = load_validation_artifacts(calibration_job_id)
-        if artifacts:
-            cal_probs, cal_labels, cal_pos_mask, cal_label_names = artifacts
-            sweep_result = compute_validation_sweep(cal_probs, cal_labels, cal_pos_mask, cal_label_names, alpha)
-            validation_sweep_json = json.dumps(sweep_result["sweep"])
-    except Exception:
-        pass
+    validation_sweep_json = load_cached_validation_sweep(calibration_job_id)
 
     # Download model from calibration bucket
     try:
@@ -138,16 +128,14 @@ def publish_model(
     artifact_path = f"{model_id}/model.pth"
     upload_to_bucket(BUCKET_MODELS, artifact_path, model_bytes)
 
-    # Copy config if exists
+    # Copy config only if the job had one
     config_json_str = None
-    try:
+    if job.config_filename:
         config_bytes = download_from_bucket(
             BUCKET_CALIBRATION, f"{calibration_job_id}/config.json"
         )
         upload_to_bucket(BUCKET_MODELS, f"{model_id}/config.json", config_bytes, "application/json")
         config_json_str = config_bytes.decode()
-    except Exception:
-        pass
 
     # Build validation metrics from result
     metrics = result_data.get("metrics", {})
@@ -188,6 +176,8 @@ def publish_model(
     return published
 
 
+# ── Listing & Details ────────────────────────────────────────
+
 def list_my_models(developer: User, db: Session) -> list[dict]:
     """List all published models owned by the developer."""
     models = (
@@ -196,14 +186,13 @@ def list_my_models(developer: User, db: Session) -> list[dict]:
         .order_by(PublishedModel.created_at.desc())
         .all()
     )
-    return [_model_to_summary(m, developer.full_name) for m in models]
+    return [model_to_summary(m, developer.full_name) for m in models]
 
 
 def list_community_models(
     db: Session,
     search: str | None = None,
     modality: str | None = None,
-    verdict: str | None = None,
     sort: str = "newest",
 ) -> list[dict]:
     """List models visible to the developer community."""
@@ -225,16 +214,13 @@ def list_community_models(
         )
     if modality:
         q = q.filter(PublishedModel.modality == modality)
-    if verdict:
-        q = q.filter(PublishedModel.validation_verdict == verdict)
-
     if sort == "alphabetical":
         q = q.order_by(PublishedModel.name.asc())
     else:
         q = q.order_by(PublishedModel.created_at.desc())
 
     results = q.all()
-    return [_model_to_summary(m, dev_name) for m, dev_name in results]
+    return [model_to_summary(m, dev_name) for m, dev_name in results]
 
 
 def list_clinician_models(db: Session) -> list[dict]:
@@ -252,7 +238,7 @@ def list_clinician_models(db: Session) -> list[dict]:
         .order_by(PublishedModel.created_at.desc())
         .all()
     )
-    return [_model_to_summary(m, dev_name) for m, dev_name in results]
+    return [model_to_summary(m, dev_name) for m, dev_name in results]
 
 
 def get_model_detail(
@@ -286,8 +272,10 @@ def get_model_detail(
         ):
             raise HTTPException(status_code=403, detail="Access denied")
 
-    return _model_to_detail(model, dev_name)
+    return model_to_detail(model, dev_name)
 
+
+# ── Updates & Visibility ─────────────────────────────────────
 
 def update_visibility(
     model_id: str,
@@ -312,7 +300,7 @@ def update_visibility(
     new_vis = new_visibility.value
 
     # Expanding visibility requires consent
-    expanding = _is_expanding_visibility(old_vis, new_vis)
+    expanding = is_expanding_visibility(old_vis, new_vis)
     if expanding and not consent_agreed:
         raise HTTPException(
             status_code=400,
@@ -355,6 +343,8 @@ def toggle_active(
     return model
 
 
+# ── Downloads ────────────────────────────────────────────────
+
 def download_model_package(model_id: str, db: Session) -> tuple[bytes, str]:
     """Build a ZIP package with model.pth, config.json, lamhat.json, and validation_report.json."""
     result = (
@@ -368,44 +358,43 @@ def download_model_package(model_id: str, db: Session) -> tuple[bytes, str]:
 
     model, dev_name = result
 
-    # Download model artifact from Supabase
-    try:
-        model_bytes = download_from_bucket(BUCKET_MODELS, model.artifact_path)
-    except Exception:
-        raise HTTPException(status_code=404, detail="Model artifact file not found")
-
     # Build the ZIP in memory
     buf = io.BytesIO()
-    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
-        # model.pth
-        zf.writestr("model.pth", model_bytes)
+    try:
+        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+            # Stream the model artifact into the zip entry chunk-by-chunk.
+            with zf.open("model.pth", "w") as model_entry:
+                for chunk in iter_blob_chunks(BUCKET_MODELS, model.artifact_path):
+                    model_entry.write(chunk)
 
-        # config.json (preprocessing params)
-        if model.config_json:
-            zf.writestr("config.json", model.config_json)
+            # config.json (preprocessing params)
+            if model.config_json:
+                zf.writestr("config.json", model.config_json)
 
-        # lamhat.json (calibration results)
-        if model.lamhat_result_json:
-            zf.writestr("lamhat.json", model.lamhat_result_json)
+            # lamhat.json (calibration results)
+            if model.lamhat_result_json:
+                zf.writestr("lamhat.json", model.lamhat_result_json)
 
-        # validation_report.json
-        validation_report = {
-            "model_id": model.id,
-            "model_name": model.name,
-            "version": model.version,
-            "developer": dev_name,
-            "modality": model.modality,
-            "intended_use": model.intended_use,
-            "artifact_type": model.artifact_type,
-            "labels": json.loads(model.labels_json),
-            "num_labels": model.num_labels,
-            "alpha": model.alpha,
-            "lamhat": model.lamhat,
-            "validation_verdict": model.validation_verdict,
-            "validation_metrics": json.loads(model.validation_metrics_json) if model.validation_metrics_json else None,
-            "published_at": model.created_at.isoformat() if model.created_at else None,
-        }
-        zf.writestr("validation_report.json", json.dumps(validation_report, indent=2))
+            # validation_report.json
+            validation_report = {
+                "model_id": model.id,
+                "model_name": model.name,
+                "version": model.version,
+                "developer": dev_name,
+                "modality": model.modality,
+                "intended_use": model.intended_use,
+                "artifact_type": model.artifact_type,
+                "labels": json.loads(model.labels_json),
+                "num_labels": model.num_labels,
+                "alpha": model.alpha,
+                "lamhat": model.lamhat,
+                "validation_verdict": model.validation_verdict,
+                "validation_metrics": json.loads(model.validation_metrics_json) if model.validation_metrics_json else None,
+                "published_at": model.created_at.isoformat() if model.created_at else None,
+            }
+            zf.writestr("validation_report.json", json.dumps(validation_report, indent=2))
+    except Exception:
+        raise HTTPException(status_code=404, detail="Model artifact file not found")
 
     filename = f"{model.name.replace(' ', '_')}_{model.version}.zip"
     return buf.getvalue(), filename
@@ -413,8 +402,26 @@ def download_model_package(model_id: str, db: Session) -> tuple[bytes, str]:
 
 # ── Helpers ──────────────────────────────────────────────────
 
-def _is_expanding_visibility(old: str, new: str) -> bool:
-    """Check if changing from old to new visibility expands the audience."""
+def load_cached_validation_sweep(calibration_job_id: str) -> str | None:
+    """Load a cached validation sweep JSON string if one exists."""
+    try:
+        cached_bytes = download_from_bucket(
+            BUCKET_CALIBRATION,
+            result_path(calibration_job_id, VALIDATION_CACHE_FILENAME),
+        )
+    except Exception:
+        return None
+
+    try:
+        cached = json.loads(cached_bytes)
+        sweep = cached.get("sweep")
+        return json.dumps(sweep) if sweep is not None else None
+    except Exception:
+        return None
+
+
+def is_expanding_visibility(old: str, new: str) -> bool:
+    """Return whether a visibility change expands the model audience."""
     if new == ModelVisibility.PRIVATE.value:
         return False
     if old == ModelVisibility.PRIVATE.value:
@@ -461,7 +468,8 @@ def update_model_details(
     return model
 
 
-def _model_to_summary(model: PublishedModel, developer_name: str) -> dict:
+def model_to_summary(model: PublishedModel, developer_name: str) -> dict:
+    """Convert a published model row into summary API data."""
     return {
         "id": model.id,
         "name": model.name,
@@ -481,7 +489,8 @@ def _model_to_summary(model: PublishedModel, developer_name: str) -> dict:
     }
 
 
-def _model_to_detail(model: PublishedModel, developer_name: str) -> dict:
+def model_to_detail(model: PublishedModel, developer_name: str) -> dict:
+    """Convert a published model row into detailed API data."""
     return {
         "id": model.id,
         "calibration_job_id": model.calibration_job_id,

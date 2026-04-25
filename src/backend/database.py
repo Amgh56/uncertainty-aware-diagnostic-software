@@ -1,10 +1,14 @@
 import os
+import logging
 from pathlib import Path
 
 from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.exc import SQLAlchemyError
+
+logger = logging.getLogger(__name__)
 
 BACKEND_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = BACKEND_DIR.parent.parent
@@ -32,4 +36,11 @@ def get_db():
     try:
         yield db
     finally:
-        db.close()
+        try:
+            db.close()
+        except SQLAlchemyError:
+            logger.exception("Database session close failed; invalidating broken connection.")
+            try:
+                db.invalidate()
+            except Exception:
+                logger.exception("Database session invalidation also failed.")

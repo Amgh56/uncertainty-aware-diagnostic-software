@@ -1,5 +1,3 @@
-"""Business logic for patient management."""
-
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 

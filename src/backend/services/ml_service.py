@@ -15,7 +15,7 @@ import cv2
 import numpy as np
 import torch
 
-from conformal_prediction_pipeline import pick_device
+from services.calibration_service import pick_device
 from azure_client import BUCKET_MODELS, download_from_bucket, upload_image
 
 MAX_CACHED_MODELS = 5

@@ -64,6 +64,7 @@ export default function ModelLibraryPage() {
   const [editDescription, setEditDescription] = useState("");
   const [editIntendedUse, setEditIntendedUse] = useState("");
   const [saving, setSaving] = useState(false);
+  const [downloadingModelId, setDownloadingModelId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!token) return;
@@ -125,6 +126,7 @@ export default function ModelLibraryPage() {
 
   async function handleDownload(modelId: string, modelName?: string) {
     if (!token) return;
+    setDownloadingModelId(modelId);
     try {
       const { blob } = await downloadModelArtifact(modelId, token);
       const url = URL.createObjectURL(blob);
@@ -135,6 +137,8 @@ export default function ModelLibraryPage() {
       URL.revokeObjectURL(url);
     } catch {
       alert("Download failed.");
+    } finally {
+      setDownloadingModelId((current) => (current === modelId ? null : current));
     }
   }
 
@@ -294,8 +298,16 @@ export default function ModelLibraryPage() {
                     <button
                       className="val-btn val-btn-outline"
                       onClick={() => handleDownload(model.id, model.name)}
+                      disabled={downloadingModelId === model.id}
                     >
-                      Download
+                      {downloadingModelId === model.id ? (
+                        <>
+                          <span className="val-btn-spinner-outline" />
+                          Downloading...
+                        </>
+                      ) : (
+                        "Download"
+                      )}
                     </button>
                   )}
                   {tab === "mine" && (
@@ -364,14 +376,20 @@ export default function ModelLibraryPage() {
                   )}
                 </div>
                 <div className="model-detail-row">
-                  <strong>Labels:</strong>{" "}
-                  {(() => {
-                    try {
-                      return JSON.parse(selectedModel.labels_json).join(", ");
-                    } catch {
-                      return selectedModel.labels_json;
-                    }
-                  })()}
+                  <strong style={{ whiteSpace: "nowrap" }}>Labels:</strong>
+                  <div className="publish-labels-list" style={{ margin: 0 }}>
+                    {(() => {
+                      try {
+                        return JSON.parse(selectedModel.labels_json);
+                      } catch {
+                        return [];
+                      }
+                    })().map((label: string, index: number) => (
+                      <span key={index} className="publish-label-chip">
+                        {label}
+                      </span>
+                    ))}
+                  </div>
                 </div>
                 <div className="model-detail-row">
                   <strong>Artifact Type:</strong> {selectedModel.artifact_type}
@@ -434,8 +452,19 @@ export default function ModelLibraryPage() {
                     </button>
                   </>
                 )}
-                <button className="val-btn val-btn-primary" onClick={() => handleDownload(selectedModel.id, selectedModel.name)}>
-                  Download Package (.zip)
+                <button
+                  className="val-btn val-btn-primary model-detail-download-btn"
+                  onClick={() => handleDownload(selectedModel.id, selectedModel.name)}
+                  disabled={downloadingModelId === selectedModel.id}
+                >
+                  {downloadingModelId === selectedModel.id ? (
+                    <>
+                      <span className="val-btn-spinner" />
+                      Downloading...
+                    </>
+                  ) : (
+                    "Download Package (.zip)"
+                  )}
                 </button>
               </div>
             </div>

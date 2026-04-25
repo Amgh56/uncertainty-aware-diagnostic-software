@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import { createCalibrationJob } from "./api/developerApi";
 import UploadCard from "./UploadCard";
@@ -19,6 +19,16 @@ export default function DeveloperDashboard() {
   const [jobsKey, setJobsKey] = useState(0);
 
   const canSubmit = modelFile && datasetFile && !submitting; // config is optional
+
+  useEffect(() => {
+    if (!submitSuccess) return;
+
+    const timeoutId = window.setTimeout(() => {
+      setSubmitSuccess(null);
+    }, 7000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [submitSuccess]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

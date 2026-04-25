@@ -136,22 +136,6 @@ export async function fetchValidationData(
   return response.json();
 }
 
-export async function regenerateValidation(
-  jobId: string,
-  token: string,
-): Promise<ValidationData> {
-  const response = await fetch(`${API_URL}/developer/jobs/${jobId}/validation`, {
-    method: "POST",
-    headers: authHeaders(token),
-  });
-
-  if (!response.ok) {
-    const message = await parseError(response);
-    throw new Error(message);
-  }
-
-  return response.json();
-}
 
 export function getArtifactDownloadUrl(jobId: string, filename: string): string {
   return `${API_URL}/developer/jobs/${jobId}/validation/download/${filename}`;
@@ -229,12 +213,11 @@ export async function listMyModels(
 
 export async function listCommunityModels(
   token: string,
-  params?: { search?: string; modality?: string; verdict?: string; sort?: string },
+  params?: { search?: string; modality?: string; sort?: string },
 ): Promise<{ models: PublishedModelSummary[] }> {
   const qs = new URLSearchParams();
   if (params?.search) qs.set("search", params.search);
   if (params?.modality) qs.set("modality", params.modality);
-  if (params?.verdict) qs.set("verdict", params.verdict);
   if (params?.sort) qs.set("sort", params.sort);
   const url = `${API_URL}/models/community${qs.toString() ? "?" + qs.toString() : ""}`;
   const response = await fetch(url, { headers: authHeaders(token) });

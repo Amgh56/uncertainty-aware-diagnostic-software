@@ -2988,11 +2988,23 @@ body {
   border-radius: 10px;
   border: none;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background-color 0.2s, box-shadow 0.2s, border-color 0.2s, opacity 0.2s;
+  overflow: hidden;
 }
 
 .val-btn:disabled {
   opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.publish-dialog-actions .publish-submit-btn {
+  justify-content: center;
+  min-width: 182px;
+}
+
+.publish-dialog-actions .publish-submit-btn:disabled {
+  opacity: 0.58;
+  box-shadow: none;
   cursor: not-allowed;
 }
 
@@ -3004,6 +3016,16 @@ body {
   height: 14px;
   border: 2px solid rgba(255,255,255,0.4);
   border-top-color: #fff;
+  border-radius: 50%;
+  animation: btn-spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+.val-btn-spinner-outline {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(31, 111, 235, 0.2);
+  border-top-color: #1F6FEB;
   border-radius: 50%;
   animation: btn-spin 0.7s linear infinite;
   flex-shrink: 0;
@@ -3454,6 +3476,12 @@ body {
   justify-content: flex-end;
   gap: 10px;
   padding: 0 24px 20px;
+}
+
+.publish-dialog-actions .publish-cancel-btn {
+  background: #fff;
+  color: #64748b;
+  border-color: #dbe3ef;
 }
 
 /* Publish section in validate page */

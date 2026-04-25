@@ -1,5 +1,3 @@
-"""Business logic for predictions: creation, history, detail retrieval."""
-
 import json
 
 from fastapi import HTTPException, UploadFile
@@ -9,6 +7,8 @@ from models import User, Patient, Prediction, PublishedModel
 from schemas import HistoryItem, HistoryResponse
 from services.ml_service import ml_state
 
+
+# ── Upload Validation ────────────────────────────────────────
 
 def is_supported_upload(file: UploadFile) -> bool:
     if not file:
@@ -21,6 +21,8 @@ def is_supported_upload(file: UploadFile) -> bool:
         return True
     return False
 
+
+# ── Prediction Creation ──────────────────────────────────────
 
 def create_prediction(
     file: UploadFile,
@@ -104,6 +106,8 @@ def create_prediction(
     }
 
 
+# ── Prediction History ───────────────────────────────────────
+
 def get_history(user: User, db: Session) -> HistoryResponse:
     rows = (
         db.query(Prediction, Patient)
@@ -131,6 +135,8 @@ def get_history(user: User, db: Session) -> HistoryResponse:
         )
     return HistoryResponse(items=items)
 
+
+# ── Prediction Regeneration ──────────────────────────────────
 
 def regenerate_prediction(
     prediction_id: int,
@@ -233,6 +239,8 @@ def regenerate_prediction(
         },
     }
 
+
+# ── Prediction Details ───────────────────────────────────────
 
 def get_prediction_detail(
     prediction_id: int, user: User, db: Session

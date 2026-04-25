@@ -12,7 +12,7 @@ import numpy as np
 import pytest
 import torch
 
-from conformal_prediction_pipeline import compute_lamhat, false_negative_rate
+from services.calibration_service import compute_lamhat, false_negative_rate
 from services.calibration_service import (
     extract_dataset_from_zip_bytes,
     load_model_from_bytes,

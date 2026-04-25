@@ -12,11 +12,6 @@ from fastapi import HTTPException
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
-from conformal_prediction_pipeline import (
-    compute_lamhat,
-    false_negative_rate,
-    pick_device,
-)
 from database import SessionLocal
 from enums import JobStatus
 from models import CalibrationJob, User
@@ -36,7 +31,44 @@ ALLOWED_MODEL_EXT = (".pth", ".pt")
 REQUIRED_CONFIG_FIELDS = ("width", "height", "pixel_mean", "pixel_std")
 
 
-# ── Storage path helpers ─────────────────────────────────────
+
+def pick_device() -> str:
+    if torch.cuda.is_available():
+        return "cuda"
+    if not (hasattr(torch.backends, "mps") and torch.backends.mps.is_available()):
+        return "cpu"
+    return "mps"
+
+
+
+# ── Main Mathmatical Functions ────────────
+def false_negative_rate(pred_set: np.ndarray, gt_labels: np.ndarray, pos_mask: np.ndarray) -> float:
+    pred_set = pred_set[pos_mask]
+    gt_labels = gt_labels[pos_mask]
+    denom = gt_labels.sum(axis=1)
+    if (denom == 0).any():
+        raise ValueError("pos_mask still contains rows with zero positives. Something is wrong.")
+    num = (pred_set * gt_labels).sum(axis=1)
+    recall = num / denom
+    return float(1.0 - recall.mean())
+
+
+def compute_lamhat(cal_sgmd, cal_labels, cal_pos_mask, alpha):
+    sgmd = cal_sgmd[cal_pos_mask]
+    labels = cal_labels[cal_pos_mask]
+    n = sgmd.shape[0]
+    target = ((n + 1) / n) * alpha - (1 / n)
+    candidates = np.unique(sgmd)
+    candidates.sort()
+    best = candidates[0]
+    for lam in candidates:
+        pred_set = sgmd >= lam
+        if false_negative_rate(pred_set, labels, np.ones(n, dtype=bool)) <= target:
+            best = lam
+    return float(best)
+
+
+# ── Storage path helpers ────
 
 def job_path(job_id: str, filename: str) -> str:
     return f"{job_id}/{filename}"
@@ -46,7 +78,7 @@ def result_path(job_id: str, filename: str) -> str:
     return f"{job_id}/result/{filename}"
 
 
-# ── Helpers ───────────────────────────────────────────────────
+# ── Helpers ────────────
 
 def get_own_job(job_id: str, developer_id: int, db: Session) -> CalibrationJob:
     job = (
@@ -72,7 +104,7 @@ def validate_upload_format(model_file, dataset_file, config_file):
         raise HTTPException(status_code=400, detail="Config file must be a .json file")
 
 
-# ── Job CRUD ──────────────────────────────────────────────────
+# ── Job CRUD ────────
 
 async def create_job(
     model_file,
@@ -215,7 +247,6 @@ def delete_job(job_id: str, developer: User, db: Session) -> None:
     except Exception:
         pass
 
-    # Cascade deletes the published_model automatically
     db.delete(job)
     db.commit()
 
@@ -274,20 +305,15 @@ def load_model_from_bytes(model_bytes: bytes) -> torch.nn.Module:
 
 
 def preprocess_image_bytes(img_bytes: bytes, preproc: dict | None) -> np.ndarray:
-    """Decode image bytes → float32 tensor (3, H, W) ready for any PyTorch model.
+    """Decode raw image bytes and return a float32 array of shape (3, H, W) for PyTorch.
 
-    Modality is auto-detected from the image data — no config field required:
+    The function automatically distinguishes grayscale and colour images from the
+    decoded data. Grayscale images are resized, optionally equalised, normalised
+    using pixel_mean/pixel_std, and stacked to 3 channels. Colour images are
+    converted from BGR to RGB, resized, normalised with ImageNet statistics, and
+    reordered to channel-first format.
 
-      Grayscale  (X-ray, CT, MRI, ultrasound, …)
-        All three BGR channels identical → single-channel path.
-        Normalised with pixel_mean / pixel_std (defaults: 128, 64).
-        Channels stacked 3× to match RGB-pretrained model input shape.
-
-      Colour  (retinal fundus, dermoscopy, pathology slides, …)
-        BGR channels differ → colour path.
-        Converted to RGB, normalised with ImageNet mean/std.
-
-    New modalities are supported automatically — no code change needed.
+    If no preprocessing config is provided, default size 224x224 is used.
     """
     arr = np.frombuffer(img_bytes, dtype=np.uint8)
     bgr = cv2.imdecode(arr, cv2.IMREAD_COLOR)
@@ -445,46 +471,59 @@ def extract_dataset_from_zip_bytes(zip_bytes: bytes) -> tuple[list[bytes], np.nd
     return image_bytes_list, labels, pos_mask, label_names
 
 
-# ── Main calibration pipeline ─────────────────────────────────
+# ── Main calibration pipeline (job worker) ─────
 
 def run_calibration_job(job_id: str) -> None:
     """
     Run the full calibration pipeline for a job.
     Called as a FastAPI BackgroundTask — updates DB status directly.
     """
+    # Phase 1: read job metadata and mark as running — close session immediately after
     db = SessionLocal()
     try:
         job = db.query(CalibrationJob).filter(CalibrationJob.id == job_id).first()
         if job is None:
             return
-
+        alpha = job.alpha
+        config_filename = job.config_filename
         job.status = JobStatus.RUNNING.value
         db.commit()
+    except Exception as exc:
+        try:
+            db.query(CalibrationJob).filter(CalibrationJob.id == job_id).update({
+                "status": JobStatus.FAILED.value,
+                "error_message": str(exc),
+                "completed_at": datetime.now(timezone.utc),
+            })
+            db.commit()
+        except Exception:
+            pass
+        return
+    finally:
+        db.close()
 
-        # Download files from Azure
+    # Phase 2: all heavy work runs with no DB session open
+    try:
         model_bytes = download_from_bucket(BUCKET_CALIBRATION, job_path(job_id, "model.pth"))
         dataset_bytes = download_from_bucket(BUCKET_CALIBRATION, job_path(job_id, "dataset.zip"))
 
-        try:
+        config_bytes = None
+        if config_filename:
             config_bytes = download_from_bucket(BUCKET_CALIBRATION, job_path(job_id, "config.json"))
-        except Exception:
-            config_bytes = None
 
-        # Parse config and dataset
         preproc = parse_config_bytes(config_bytes)
         image_bytes_list, labels, pos_mask, label_names = extract_dataset_from_zip_bytes(dataset_bytes)
 
-        # Load model and run inference
         model = load_model_from_bytes(model_bytes)
         probs = infer_all_probs_from_bytes(model, preproc, image_bytes_list, batch_size=16)
-        lamhat = compute_lamhat(probs, labels, pos_mask, job.alpha)
+        lamhat = compute_lamhat(probs, labels, pos_mask, alpha)
 
         pred_sets = (probs >= lamhat).astype(np.float32)
         metrics = evaluate_sets(pred_sets, labels, pos_mask, label_names)
 
         result = {
             "lamhat": float(lamhat),
-            "alpha": float(job.alpha),
+            "alpha": float(alpha),
             "n_samples": len(image_bytes_list),
             "labels": label_names,
             "preprocessing": preproc if preproc is not None else {"note": "no config uploaded"},
@@ -495,7 +534,6 @@ def run_calibration_job(job_id: str) -> None:
             "calibrated_at": datetime.now(timezone.utc).isoformat(),
         }
 
-        # Upload result artifacts to Azure
         upload_npy(job_id, "cal_probs.npy", probs)
         upload_npy(job_id, "cal_labels.npy", labels)
         upload_npy(job_id, "cal_pos_mask.npy", pos_mask)
@@ -512,22 +550,29 @@ def run_calibration_job(job_id: str) -> None:
             "application/json",
         )
 
-        job.result_json = json.dumps(result)
-        job.status = JobStatus.DONE.value
-        job.completed_at = datetime.now(timezone.utc)
-        db.commit()
+        # Phase 3: write results with a fresh session
+        db = SessionLocal()
+        try:
+            db.query(CalibrationJob).filter(CalibrationJob.id == job_id).update({
+                "result_json": json.dumps(result),
+                "status": JobStatus.DONE.value,
+                "completed_at": datetime.now(timezone.utc),
+            })
+            db.commit()
+        finally:
+            db.close()
 
     except Exception as exc:
-        db.query(CalibrationJob).filter(CalibrationJob.id == job_id).update(
-            {
+        db = SessionLocal()
+        try:
+            db.query(CalibrationJob).filter(CalibrationJob.id == job_id).update({
                 "status": JobStatus.FAILED.value,
                 "error_message": str(exc),
                 "completed_at": datetime.now(timezone.utc),
-            }
-        )
-        db.commit()
-    finally:
-        db.close()
+            })
+            db.commit()
+        finally:
+            db.close()
 
 
 def upload_npy(job_id: str, filename: str, arr: np.ndarray) -> None:
@@ -627,12 +672,16 @@ def get_validation_data(job_id: str, developer: User, db: Session) -> dict:
     if job.status != JobStatus.DONE.value:
         raise HTTPException(status_code=400, detail=f"Job is not complete (status: {job.status})")
 
-    # Fast path — return cached result if available
-    try:
-        cached_bytes = download_from_bucket(BUCKET_CALIBRATION, result_path(job_id, _VALIDATION_CACHE))
-        return json.loads(cached_bytes)
-    except Exception:
-        pass  # cache miss — compute fresh below
+    # Fast path — blob exists if verdict is set (true for all jobs after upload-first fix)
+    if job.validation_verdict:
+        try:
+            cached_bytes = download_from_bucket(BUCKET_CALIBRATION, result_path(job_id, _VALIDATION_CACHE))
+            return json.loads(cached_bytes)
+        except Exception:
+            # Blob missing for old jobs where verdict was written before blob was uploaded.
+            # Clear the stale verdict and fall through to recompute below.
+            job.validation_verdict = None
+            db.commit()
 
     artifacts = load_validation_artifacts(job_id)
     if artifacts is None:
@@ -644,12 +693,7 @@ def get_validation_data(job_id: str, developer: User, db: Session) -> dict:
     probs, labels, pos_mask, label_names = artifacts
     result = compute_validation_sweep(probs, labels, pos_mask, label_names, job.alpha)
 
-    # Persist verdict on the job
-    if job.validation_verdict != result["verdict"]:
-        job.validation_verdict = result["verdict"]
-        db.commit()
-
-    # Write cache so the next call is instant
+    # Upload blob first — verdict is only written after blob is confirmed uploaded
     upload_to_bucket(
         BUCKET_CALIBRATION,
         result_path(job_id, _VALIDATION_CACHE),
@@ -657,47 +701,10 @@ def get_validation_data(job_id: str, developer: User, db: Session) -> dict:
         "application/json",
     )
 
+    job.validation_verdict = result["verdict"]
+    db.commit()
+
     return result
-
-
-def regenerate_validation_artifacts(job_id: str, developer: User, db: Session) -> dict:
-    """Re-run inference to generate validation artifacts for older jobs."""
-    job = get_own_job(job_id, developer.id, db)
-
-    if job.status != JobStatus.DONE.value:
-        raise HTTPException(status_code=400, detail=f"Job is not complete (status: {job.status})")
-
-    # Download model and dataset from Azure
-    try:
-        model_bytes = download_from_bucket(BUCKET_CALIBRATION, job_path(job_id, "model.pth"))
-        dataset_bytes = download_from_bucket(BUCKET_CALIBRATION, job_path(job_id, "dataset.zip"))
-    except Exception:
-        raise HTTPException(status_code=404, detail="Original job files not found")
-
-    try:
-        config_bytes = download_from_bucket(BUCKET_CALIBRATION, job_path(job_id, "config.json"))
-    except Exception:
-        config_bytes = None
-
-    preproc = parse_config_bytes(config_bytes)
-    image_bytes_list, labels, pos_mask, label_names = extract_dataset_from_zip_bytes(dataset_bytes)
-
-    model = load_model_from_bytes(model_bytes)
-    probs = infer_all_probs_from_bytes(model, preproc, image_bytes_list, batch_size=16)
-
-    # Upload new artifacts to Azure (invalidate cached sweep result first)
-    delete_from_bucket(BUCKET_CALIBRATION, [result_path(job_id, _VALIDATION_CACHE)])
-    upload_npy(job_id, "cal_probs.npy", probs)
-    upload_npy(job_id, "cal_labels.npy", labels)
-    upload_npy(job_id, "cal_pos_mask.npy", pos_mask)
-    upload_to_bucket(
-        BUCKET_CALIBRATION,
-        result_path(job_id, "label_names.json"),
-        json.dumps(label_names).encode(),
-        "application/json",
-    )
-
-    return compute_validation_sweep(probs, labels, pos_mask, label_names, job.alpha)
 
 
 def get_validation_artifact(job_id: str, filename: str, developer: User, db: Session) -> tuple[bytes, str]:

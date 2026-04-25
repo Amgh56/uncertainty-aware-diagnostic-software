@@ -31,7 +31,6 @@ from services.calibration_service import (
     get_validation_artifact as svc_get_artifact,
     get_validation_data as svc_get_validation,
     list_jobs as svc_list_jobs,
-    regenerate_validation_artifacts as svc_regenerate_validation,
     run_calibration_job,
 )
 
@@ -209,22 +208,6 @@ def get_validation(
     return svc_get_validation(job_id, developer, db)
 
 
-@router.post(
-    "/developer/jobs/{job_id}/validation",
-    summary="Regenerate validation artifacts",
-    description="Re-runs inference to create validation artifacts for older jobs that lack them.",
-    responses={
-        200: {"description": "Validation data generated and returned"},
-        400: {"model": ErrorResponse, "description": "Job not complete"},
-        404: {"model": ErrorResponse, "description": "Original files not found"},
-    },
-)
-def regenerate_validation(
-    job_id: str,
-    db: Session = Depends(get_db),
-    developer: User = Depends(require_developer),
-):
-    return svc_regenerate_validation(job_id, developer, db)
 
 
 @router.get(

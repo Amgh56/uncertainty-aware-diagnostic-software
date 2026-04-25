@@ -40,11 +40,29 @@ export default function JobsTable({ token, onNewJob }: JobsTableProps) {
   const [loadError, setLoadError] = useState<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
 
+  function clearPolling() {
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = undefined;
+    }
+  }
+
   async function fetchJobs() {
     try {
       const data = await listJobs(token);
-      setJobs(data.jobs ?? []);
+      const nextJobs = data.jobs ?? [];
+      setJobs(nextJobs);
       setLoadError(null);
+
+      const hasActive = nextJobs.some(
+        (job) => job.status === "queued" || job.status === "running",
+      );
+
+      if (hasActive && !pollRef.current) {
+        pollRef.current = setInterval(fetchJobs, POLL_INTERVAL_MS);
+      } else if (!hasActive) {
+        clearPolling();
+      }
     } catch {
       setLoadError("Could not reach the server.");
     }
@@ -52,8 +70,7 @@ export default function JobsTable({ token, onNewJob }: JobsTableProps) {
 
   useEffect(() => {
     fetchJobs();
-    pollRef.current = setInterval(fetchJobs, POLL_INTERVAL_MS);
-    return () => clearInterval(pollRef.current);
+    return () => clearPolling();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 

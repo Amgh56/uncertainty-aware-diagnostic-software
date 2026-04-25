@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useAuth } from "../context/AuthContext";
 import {
   publishModel,
@@ -40,6 +40,7 @@ export default function PublishModelDialog({
   const [consentChecked, setConsentChecked] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const submittingRef = useRef(false);
 
   const labels = validation.label_names;
   const isBlocked = validation.verdict === "unreliable" || validation.verdict === "review";
@@ -57,8 +58,9 @@ export default function PublishModelDialog({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!canSubmit || !token) return;
+    if (!canSubmit || !token || submittingRef.current) return;
 
+    submittingRef.current = true;
     setSubmitting(true);
     setError(null);
 
@@ -79,6 +81,7 @@ export default function PublishModelDialog({
       onPublished();
     } catch (err) {
       setError((err as Error).message);
+      submittingRef.current = false;
     } finally {
       setSubmitting(false);
     }
@@ -273,15 +276,14 @@ export default function PublishModelDialog({
           <div className="publish-dialog-actions">
             <button
               type="button"
-              className="val-btn val-btn-outline"
+              className="val-btn val-btn-outline publish-cancel-btn"
               onClick={onCancel}
-              disabled={submitting}
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="val-btn val-btn-primary"
+              className="val-btn val-btn-primary publish-submit-btn"
               disabled={!canSubmit}
             >
               {submitting && <span className="val-btn-spinner" />}

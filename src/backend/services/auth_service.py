@@ -1,5 +1,3 @@
-"""Business logic for user registration, login, password reset, and email OTP verification."""
-
 import hashlib
 import hmac
 import os
@@ -30,32 +28,38 @@ PASSWORD_RULES = (
     "and one special character (!@#$%^&*()_+-=[]{}|;:',.<>?/`~)."
 )
 
-def _make_reset_token(email: str, timestamp: int) -> str:
+def make_reset_token(email: str, timestamp: int) -> str:
+    """Build a signed password reset token."""
     message = f"{email.lower().strip()}:{timestamp}".encode()
     return hmac.new(ENC_SECRET.encode(), message, hashlib.sha256).hexdigest()
 
 
 def generate_reset_token(email: str) -> tuple[str, int]:
+    """Generate a password reset token and timestamp."""
     ts = int(time.time())
-    return _make_reset_token(email, ts), ts
+    return make_reset_token(email, ts), ts
 
 
 def verify_reset_token(email: str, token: str, timestamp: int) -> bool:
+    """Check whether a reset token is still valid."""
     if int(time.time()) - timestamp > TOKEN_TTL_SECONDS :
         return False
-    expected = _make_reset_token(email, timestamp)
+    expected = make_reset_token(email, timestamp)
     return hmac.compare_digest(expected, token)
 
 
-def _generate_otp() -> str:
+def generate_otp() -> str:
+    """Generate a six-digit OTP code."""
     return f"{secrets.randbelow(1_000_000):06d}"
 
 
-def _hash_otp(otp: str) -> str:
+def hash_otp(otp: str) -> str:
+    """Hash an OTP code for storage."""
     return hashlib.sha256(otp.encode()).hexdigest()
 
 
-def _validate_password(password: str) -> None:
+def validate_password(password: str) -> None:
+    """Validate password strength rules."""
     if len(password) < 8:
         raise HTTPException(status_code=400, detail=PASSWORD_RULES)
     if not re.search(r"[A-Z]", password):
@@ -75,7 +79,8 @@ async def register_user(
     db: Session,
     role: UserRole = UserRole.CLINICIAN,
 ) -> dict:
-    _validate_password(password)
+    """Register a new user and send an email verification OTP."""
+    validate_password(password)
 
     existing = (
         db.query(User).filter(User.email == email.lower().strip()).first()
@@ -83,7 +88,7 @@ async def register_user(
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
 
-    otp = _generate_otp()
+    otp = generate_otp()
     now = datetime.now(timezone.utc)
 
     user = User(
@@ -92,7 +97,7 @@ async def register_user(
         full_name=full_name.strip(),
         role=role.value,
         is_verified=False,
-        otp_code=_hash_otp(otp),
+        otp_code=hash_otp(otp),
         otp_expires_at=now + timedelta(seconds=OTP_TTL_SECONDS),
         otp_attempts=0,
         otp_last_sent_at=now,
@@ -112,6 +117,7 @@ async def register_user(
 
 
 async def login_user(email: str, password: str, db: Session) -> dict:
+    """Authenticate a user and refresh OTP if unverified."""
     user = (
         db.query(User).filter(User.email == email.lower().strip()).first()
     )
@@ -121,9 +127,9 @@ async def login_user(email: str, password: str, db: Session) -> dict:
     token = create_access_token(user.id)
 
     if not user.is_verified:
-        otp = _generate_otp()
+        otp = generate_otp()
         now = datetime.now(timezone.utc)
-        user.otp_code = _hash_otp(otp)
+        user.otp_code = hash_otp(otp)
         user.otp_expires_at = now + timedelta(seconds=OTP_TTL_SECONDS)
         user.otp_attempts = 0
         user.otp_last_sent_at = now
@@ -138,6 +144,7 @@ async def login_user(email: str, password: str, db: Session) -> dict:
 
 
 def verify_email_otp(email: str, otp: str, db: Session) -> dict:
+    """Verify an email OTP code for a user."""
     user = db.query(User).filter(User.email == email.lower().strip()).first()
     if not user:
         raise HTTPException(status_code=400, detail="Invalid email")
@@ -167,7 +174,7 @@ def verify_email_otp(email: str, otp: str, db: Session) -> dict:
             detail="Verification code has expired. Please request a new code.",
         )
 
-    if not hmac.compare_digest(_hash_otp(otp), user.otp_code):
+    if not hmac.compare_digest(hash_otp(otp), user.otp_code):
         user.otp_attempts += 1
         db.commit()
         remaining = OTP_MAX_ATTEMPTS - user.otp_attempts
@@ -186,6 +193,7 @@ def verify_email_otp(email: str, otp: str, db: Session) -> dict:
 
 
 async def resend_email_otp(email: str, db: Session) -> dict:
+    """Send a fresh email OTP if resend rules allow it."""
     user = db.query(User).filter(User.email == email.lower().strip()).first()
     if not user:
         return {"detail": "If that email is registered, a new code has been sent."}
@@ -206,8 +214,8 @@ async def resend_email_otp(email: str, db: Session) -> dict:
                 detail=f"Please wait {remaining} seconds before requesting a new code.",
             )
 
-    otp = _generate_otp()
-    user.otp_code = _hash_otp(otp)
+    otp = generate_otp()
+    user.otp_code = hash_otp(otp)
     user.otp_expires_at = now + timedelta(seconds=OTP_TTL_SECONDS)
     user.otp_attempts = 0
     user.otp_last_sent_at = now
@@ -219,6 +227,7 @@ async def resend_email_otp(email: str, db: Session) -> dict:
 
 
 async def forgot_password(email: str, db: Session) -> dict:
+    """Send a password reset link if the account exists."""
     user = db.query(User).filter(User.email == email.lower().strip()).first()
     if user:
         token, timestamp = generate_reset_token(email)
@@ -234,7 +243,8 @@ async def forgot_password(email: str, db: Session) -> dict:
 
 
 def reset_password(email: str, token: str, timestamp: int, new_password: str, db: Session) -> dict:
-    _validate_password(new_password)
+    """Reset a user's password using a valid reset link."""
+    validate_password(new_password)
 
     if not verify_reset_token(email, token, timestamp):
         raise HTTPException(status_code=400, detail="Invalid or expired reset link")
