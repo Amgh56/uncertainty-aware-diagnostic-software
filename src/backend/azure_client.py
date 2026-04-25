@@ -32,6 +32,16 @@ def use_azure() -> bool:
     return blob_service_client is not None
 
 
+def _allow_runtime_fallback(bucket: str) -> bool:
+    """
+    Only public image uploads may fall back to local storage after an Azure error.
+
+    For private calibration/model artifacts, a runtime Azure failure must surface
+    immediately so we do not silently split state between Azure and local disk.
+    """
+    return bucket == BUCKET_XRAY_IMAGES
+
+
 
 def local_path(bucket: str, path: str) -> Path:
     return LOCAL_STORAGE_ROOT / bucket / path
@@ -92,7 +102,11 @@ def upload_to_bucket(
             )
             return path
         except Exception as exc:
-            logger.error("Azure upload failed, falling back to local: %s", exc)
+            logger.exception("Azure upload failed for %s/%s", bucket, path)
+            if not _allow_runtime_fallback(bucket):
+                raise RuntimeError(
+                    f"Azure upload failed for {bucket}/{path}"
+                ) from exc
 
     local_upload(bucket, path, file_bytes)
     return path
@@ -105,7 +119,11 @@ def download_from_bucket(bucket: str, path: str) -> bytes:
             blob_client = blob_service_client.get_blob_client(container=bucket, blob=path)
             return blob_client.download_blob().readall()
         except Exception as exc:
-            logger.error("Azure download failed, falling back to local: %s", exc)
+            logger.exception("Azure download failed for %s/%s", bucket, path)
+            if not _allow_runtime_fallback(bucket):
+                raise RuntimeError(
+                    f"Azure download failed for {bucket}/{path}"
+                ) from exc
 
     return local_download(bucket, path)
 
@@ -122,7 +140,11 @@ def delete_from_bucket(bucket: str, paths: list[str]) -> None:
                     pass
             return
         except Exception as exc:
-            logger.error("Azure delete failed, falling back to local: %s", exc)
+            logger.exception("Azure delete failed for bucket %s", bucket)
+            if not _allow_runtime_fallback(bucket):
+                raise RuntimeError(
+                    f"Azure delete failed for bucket {bucket}"
+                ) from exc
 
     local_delete(bucket, paths)
 

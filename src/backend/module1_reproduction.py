@@ -9,12 +9,11 @@ from pathlib import Path
 
 CLASSES = ["Cardiomegaly", "Edema", "Consolidation", "Atelectasis", "Pleural Effusion"]
 SCRIPT_DIR = Path(__file__).resolve().parent
-ROOT_DIR = SCRIPT_DIR.parent
-CHEXPERT_CODE_DIR = ROOT_DIR / "Chexpert"
+PROJECT_ROOT = SCRIPT_DIR.parent.parent
+CHEXPERT_CODE_DIR = PROJECT_ROOT / "Chexpert"
 CONFIG_DIR = CHEXPERT_CODE_DIR / "config"
 DATA_DIR = SCRIPT_DIR / "CheXpert1"
 VALID_CSV = DATA_DIR / "valid.csv"
-
 
 sys.path.insert(0, str(CHEXPERT_CODE_DIR))
 from model.classifier import Classifier

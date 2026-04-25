@@ -11,3 +11,6 @@ passlib[bcrypt]
 psycopg2-binary
 azure-storage-blob
 fastapi-mail
+pytest
+httpx
+pandas

@@ -163,29 +163,50 @@ def _load_model_from_bytes(model_bytes: bytes, device: str) -> torch.nn.Module:
 
 
 def _preprocess_with_config(img_bytes: bytes, config: dict | None) -> np.ndarray:
-    """Preprocess image bytes using model-specific config."""
+    """Preprocess image bytes → float32 tensor (3, H, W) ready for any PyTorch model.
+
+    Modality is auto-detected from the image data — no config field required:
+
+      Grayscale  (X-ray, CT, MRI, ultrasound, …)
+        All three BGR channels are identical → treat as single-channel.
+        Normalised with pixel_mean / pixel_std (defaults: 128, 64).
+        Channels are stacked 3× so the tensor shape matches RGB-pretrained models.
+
+      Colour  (retinal fundus, dermoscopy, pathology slides, …)
+        BGR channels differ → treat as colour.
+        Converted to RGB and normalised with ImageNet mean/std (0.485/0.456/0.406,
+        0.229/0.224/0.225), which suits any ImageNet-pretrained backbone.
+
+    Adding support for a new image type requires no code change — the correct
+    path is selected automatically based on whether the image carries colour info.
+    """
     arr = np.frombuffer(img_bytes, dtype=np.uint8)
-    img = cv2.imdecode(arr, cv2.IMREAD_GRAYSCALE)
-    if img is None:
+    bgr = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+    if bgr is None:
         raise ValueError("Could not decode image")
 
-    img = img.astype(np.float32)
+    w = int(config.get("width",  224)) if config else 224
+    h = int(config.get("height", 224)) if config else 224
 
-    if config:
-        w = int(config.get("width", 224))
-        h = int(config.get("height", 224))
-        img = cv2.resize(img, (w, h))
-        if config.get("use_equalizeHist", False):
-            img = cv2.equalizeHist(img.astype(np.uint8)).astype(np.float32)
-        mean = float(config.get("pixel_mean", 128.0))
-        std = float(config.get("pixel_std", 64.0))
-        img = (img - mean) / std
+    is_grayscale = np.array_equal(bgr[:, :, 0], bgr[:, :, 1]) and \
+                   np.array_equal(bgr[:, :, 1], bgr[:, :, 2])
+
+    if is_grayscale:
+        gray = bgr[:, :, 0].astype(np.float32)
+        gray = cv2.resize(gray, (w, h))
+        if config and config.get("use_equalizeHist", False):
+            gray = cv2.equalizeHist(gray.astype(np.uint8)).astype(np.float32)
+        mean = float(config.get("pixel_mean", 128.0)) if config else 128.0
+        std  = float(config.get("pixel_std",  64.0))  if config else 64.0
+        gray = (gray - mean) / std
+        return np.stack([gray, gray, gray], axis=0)
     else:
-        # Default: 224x224, standard normalization
-        img = cv2.resize(img, (224, 224))
-        img = (img - 128.0) / 64.0
-
-    return np.stack([img, img, img], axis=0)
+        rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB).astype(np.float32) / 255.0
+        rgb = cv2.resize(rgb, (w, h))
+        mean = np.array([0.485, 0.456, 0.406], dtype=np.float32)
+        std  = np.array([0.229, 0.224, 0.225], dtype=np.float32)
+        rgb = (rgb - mean) / std
+        return rgb.transpose(2, 0, 1)  # (H, W, 3) → (3, H, W)
 
 
 def _forward(model: torch.nn.Module, x: torch.Tensor) -> np.ndarray:

@@ -93,13 +93,15 @@ export default function HomePage() {
         )}
 
         {!loading && !error && filtered.length === 0 && (
-          <div className="panel" style={{ padding: 60, textAlign: "center" }}>
-            <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
-              <circle cx="12" cy="7" r="4" />
-            </svg>
-            <p className="empty-title">{search ? "No patients match your search" : "No patients yet"}</p>
-            <p className="empty-hint">Use the sidebar New Diagnosis view to add a patient and run a prediction.</p>
+          <div className="panel">
+            <div className="empty-state">
+              <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
+                <circle cx="12" cy="7" r="4" />
+              </svg>
+              <p className="empty-title">{search ? "No patients match your search" : "No patients yet"}</p>
+              <p className="empty-hint">Use the sidebar New Diagnosis view to add a patient and run a prediction.</p>
+            </div>
           </div>
         )}
 

@@ -274,21 +274,48 @@ def load_model_from_bytes(model_bytes: bytes) -> torch.nn.Module:
 
 
 def preprocess_image_bytes(img_bytes: bytes, preproc: dict | None) -> np.ndarray:
-    """Decode image bytes and return a float32 array (3, H, W)."""
+    """Decode image bytes → float32 tensor (3, H, W) ready for any PyTorch model.
+
+    Modality is auto-detected from the image data — no config field required:
+
+      Grayscale  (X-ray, CT, MRI, ultrasound, …)
+        All three BGR channels identical → single-channel path.
+        Normalised with pixel_mean / pixel_std (defaults: 128, 64).
+        Channels stacked 3× to match RGB-pretrained model input shape.
+
+      Colour  (retinal fundus, dermoscopy, pathology slides, …)
+        BGR channels differ → colour path.
+        Converted to RGB, normalised with ImageNet mean/std.
+
+    New modalities are supported automatically — no code change needed.
+    """
     arr = np.frombuffer(img_bytes, dtype=np.uint8)
-    img = cv2.imdecode(arr, cv2.IMREAD_GRAYSCALE)
-    if img is None:
+    bgr = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+    if bgr is None:
         raise ValueError("Could not decode image")
 
-    img = img.astype(np.float32)
+    w = int(preproc["width"])  if preproc else 224
+    h = int(preproc["height"]) if preproc else 224
 
-    if preproc is not None:
-        img = cv2.resize(img, (preproc["width"], preproc["height"]))
-        if preproc.get("use_equalizeHist", False):
-            img = cv2.equalizeHist(img.astype(np.uint8)).astype(np.float32)
-        img = (img - preproc["pixel_mean"]) / preproc["pixel_std"]
+    is_grayscale = np.array_equal(bgr[:, :, 0], bgr[:, :, 1]) and \
+                   np.array_equal(bgr[:, :, 1], bgr[:, :, 2])
 
-    return np.stack([img, img, img], axis=0)
+    if is_grayscale:
+        gray = bgr[:, :, 0].astype(np.float32)
+        gray = cv2.resize(gray, (w, h))
+        if preproc and preproc.get("use_equalizeHist", False):
+            gray = cv2.equalizeHist(gray.astype(np.uint8)).astype(np.float32)
+        mean = float(preproc["pixel_mean"]) if preproc else 128.0
+        std  = float(preproc["pixel_std"])  if preproc else 64.0
+        gray = (gray - mean) / std
+        return np.stack([gray, gray, gray], axis=0)
+    else:
+        rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB).astype(np.float32) / 255.0
+        rgb = cv2.resize(rgb, (w, h))
+        mean = np.array([0.485, 0.456, 0.406], dtype=np.float32)
+        std  = np.array([0.229, 0.224, 0.225], dtype=np.float32)
+        rgb = (rgb - mean) / std
+        return rgb.transpose(2, 0, 1)  # (H, W, 3) → (3, H, W)
 
 
 def forward(model: torch.nn.Module, x: torch.Tensor) -> np.ndarray:
@@ -586,12 +613,26 @@ def compute_validation_sweep(probs, labels, pos_mask, label_names, job_alpha):
     }
 
 
+_VALIDATION_CACHE = "validation_result.json"
+
+
 def get_validation_data(job_id: str, developer: User, db: Session) -> dict:
-    """Return validation sweep data for a completed job."""
+    """Return validation sweep data for a completed job.
+
+    The sweep result is cached as validation_result.json after the first call
+    so all subsequent requests return instantly without re-running the sweep.
+    """
     job = get_own_job(job_id, developer.id, db)
 
     if job.status != JobStatus.DONE.value:
         raise HTTPException(status_code=400, detail=f"Job is not complete (status: {job.status})")
+
+    # Fast path — return cached result if available
+    try:
+        cached_bytes = download_from_bucket(BUCKET_CALIBRATION, result_path(job_id, _VALIDATION_CACHE))
+        return json.loads(cached_bytes)
+    except Exception:
+        pass  # cache miss — compute fresh below
 
     artifacts = load_validation_artifacts(job_id)
     if artifacts is None:
@@ -603,10 +644,18 @@ def get_validation_data(job_id: str, developer: User, db: Session) -> dict:
     probs, labels, pos_mask, label_names = artifacts
     result = compute_validation_sweep(probs, labels, pos_mask, label_names, job.alpha)
 
-    # Persist verdict on the job if not already set
+    # Persist verdict on the job
     if job.validation_verdict != result["verdict"]:
         job.validation_verdict = result["verdict"]
         db.commit()
+
+    # Write cache so the next call is instant
+    upload_to_bucket(
+        BUCKET_CALIBRATION,
+        result_path(job_id, _VALIDATION_CACHE),
+        json.dumps(result).encode(),
+        "application/json",
+    )
 
     return result
 
@@ -636,7 +685,8 @@ def regenerate_validation_artifacts(job_id: str, developer: User, db: Session) -
     model = load_model_from_bytes(model_bytes)
     probs = infer_all_probs_from_bytes(model, preproc, image_bytes_list, batch_size=16)
 
-    # Upload new artifacts to Azure
+    # Upload new artifacts to Azure (invalidate cached sweep result first)
+    delete_from_bucket(BUCKET_CALIBRATION, [result_path(job_id, _VALIDATION_CACHE)])
     upload_npy(job_id, "cal_probs.npy", probs)
     upload_npy(job_id, "cal_labels.npy", labels)
     upload_npy(job_id, "cal_pos_mask.npy", pos_mask)

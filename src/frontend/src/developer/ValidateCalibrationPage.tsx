@@ -17,9 +17,9 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  ReferenceLine,
-  ReferenceDot,
 } from "recharts";
+
+const ALPHA_AXIS_TICKS = [0, 0.2, 0.4, 0.6, 0.8, 1];
 
 export default function ValidateCalibrationPage() {
   const { token } = useAuth();
@@ -33,6 +33,11 @@ export default function ValidateCalibrationPage() {
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [needsRegenerate, setNeedsRegenerate] = useState(false);
+
+  const formatAlpha = (value: unknown) => {
+    const numericValue = Number(value);
+    return Number.isFinite(numericValue) ? numericValue.toFixed(1) : String(value);
+  };
 
   // Fetch completed jobs on mount
   useEffect(() => {
@@ -116,13 +121,35 @@ export default function ValidateCalibrationPage() {
     });
 
     const serialized = new XMLSerializer().serializeToString(clone);
-    const blob = new Blob([serialized], { type: "image/svg+xml" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${name}_${selectedJobId.slice(0, 8)}.svg`;
-    a.click();
-    URL.revokeObjectURL(url);
+    const svgBlob = new Blob([serialized], { type: "image/svg+xml;charset=utf-8" });
+    const svgUrl = URL.createObjectURL(svgBlob);
+    const image = new Image();
+
+    image.onload = () => {
+      const scale = 2;
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(box.width * scale));
+      canvas.height = Math.max(1, Math.round(box.height * scale));
+      const context = canvas.getContext("2d");
+      if (!context) {
+        URL.revokeObjectURL(svgUrl);
+        return;
+      }
+
+      context.fillStyle = "#ffffff";
+      context.fillRect(0, 0, canvas.width, canvas.height);
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+      URL.revokeObjectURL(svgUrl);
+
+      const pngUrl = canvas.toDataURL("image/png");
+      const a = document.createElement("a");
+      a.href = pngUrl;
+      a.download = `${name}_${selectedJobId.slice(0, 8)}.png`;
+      a.click();
+    };
+
+    image.onerror = () => URL.revokeObjectURL(svgUrl);
+    image.src = svgUrl;
   }
 
   function downloadValidationJSON() {
@@ -264,12 +291,19 @@ export default function ValidateCalibrationPage() {
                       <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
                       <XAxis
                         dataKey="alpha"
+                        type="number"
+                        domain={[0, 1]}
+                        ticks={ALPHA_AXIS_TICKS}
                         label={{ value: "Alpha", position: "insideBottom", offset: -20, style: { fill: "#64748B" } }}
                         tick={{ fontSize: 12, fill: "#64748B" }}
+                        tickFormatter={formatAlpha}
                       />
                       <YAxis
+                        domain={[0, 1]}
+                        ticks={ALPHA_AXIS_TICKS}
                         label={{ value: "FNR", angle: -90, position: "insideLeft", offset: 10, style: { fill: "#64748B" } }}
                         tick={{ fontSize: 12, fill: "#64748B" }}
+                        tickFormatter={formatAlpha}
                       />
                       <Tooltip
                         contentStyle={{ borderRadius: 8, border: "1px solid #E2E8F0", fontSize: 13 }}
@@ -277,7 +311,7 @@ export default function ValidateCalibrationPage() {
                           typeof value === "number" ? (value * 100).toFixed(1) + "%" : String(value),
                           name === "empirical_fnr" ? "Empirical FNR" : "Target (y=alpha)",
                         ]}
-                        labelFormatter={(v) => `Alpha = ${v}`}
+                        labelFormatter={(v) => `Alpha = ${formatAlpha(v)}`}
                       />
                   
                       <Line
@@ -296,20 +330,6 @@ export default function ValidateCalibrationPage() {
                         dot={false}
                         activeDot={{ r: 5 }}
                       />
-                      <ReferenceDot
-                        x={validation.job_alpha}
-                        y={validation.job_fnr}
-                        r={6}
-                        fill="#1F6FEB"
-                        stroke="#fff"
-                        strokeWidth={2}
-                      />
-                      <ReferenceLine
-                        x={validation.job_alpha}
-                        stroke="#1F6FEB"
-                        strokeDasharray="3 3"
-                        strokeWidth={1}
-                      />
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
@@ -327,8 +347,12 @@ export default function ValidateCalibrationPage() {
                       <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
                       <XAxis
                         dataKey="alpha"
+                        type="number"
+                        domain={[0, 1]}
+                        ticks={ALPHA_AXIS_TICKS}
                         label={{ value: "Alpha", position: "insideBottom", offset: -20, style: { fill: "#64748B" } }}
                         tick={{ fontSize: 12, fill: "#64748B" }}
+                        tickFormatter={formatAlpha}
                       />
                       <YAxis
                         label={{ value: "Avg Set Size", angle: -90, position: "insideLeft", offset: 10, style: { fill: "#64748B" } }}
@@ -340,7 +364,7 @@ export default function ValidateCalibrationPage() {
                           typeof value === "number" ? value.toFixed(2) : String(value),
                           "Avg Set Size",
                         ]}
-                        labelFormatter={(v) => `Alpha = ${v}`}
+                        labelFormatter={(v) => `Alpha = ${formatAlpha(v)}`}
                       />
                       <Line
                         type="monotone"
@@ -349,20 +373,6 @@ export default function ValidateCalibrationPage() {
                         strokeWidth={2.5}
                         dot={false}
                         activeDot={{ r: 5 }}
-                      />
-                      <ReferenceDot
-                        x={validation.job_alpha}
-                        y={validation.job_avg_set_size}
-                        r={6}
-                        fill="#0F766E"
-                        stroke="#fff"
-                        strokeWidth={2}
-                      />
-                      <ReferenceLine
-                        x={validation.job_alpha}
-                        stroke="#0F766E"
-                        strokeDasharray="3 3"
-                        strokeWidth={1}
                       />
                     </LineChart>
                   </ResponsiveContainer>
@@ -483,13 +493,13 @@ export default function ValidateCalibrationPage() {
                   <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
                     <path d="M10 3v10m0 0l-3-3m3 3l3-3M4 15h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
-                  FNR Plot (.svg)
+                  FNR Plot (.png)
                 </button>
                 <button className="val-btn val-btn-outline" onClick={() => downloadChart(sizeChartRef, "set_size_vs_alpha")}>
                   <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
                     <path d="M10 3v10m0 0l-3-3m3 3l3-3M4 15h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
-                  Set Size Plot (.svg)
+                  Set Size Plot (.png)
                 </button>
               </div>
             </div>

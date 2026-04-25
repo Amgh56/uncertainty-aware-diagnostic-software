@@ -2996,6 +2996,19 @@ body {
   cursor: not-allowed;
 }
 
+@keyframes btn-spin {
+  to { transform: rotate(360deg); }
+}
+.val-btn-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255,255,255,0.4);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: btn-spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
 .val-btn-primary {
   background: #1F6FEB;
   color: #fff;
@@ -3601,6 +3614,7 @@ body {
   justify-content: space-between;
   gap: 8px;
   flex-wrap: wrap;
+  margin-top: auto;
 }
 
 .model-card-badges {
@@ -3619,7 +3633,8 @@ body {
 .model-card-actions {
   display: flex;
   gap: 8px;
-  margin-top: 4px;
+  margin-top: 12px;
+  flex-wrap: wrap;
 }
 
 .model-card-actions .val-btn {

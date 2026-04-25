@@ -275,6 +275,7 @@ export default function PublishModelDialog({
               type="button"
               className="val-btn val-btn-outline"
               onClick={onCancel}
+              disabled={submitting}
             >
               Cancel
             </button>
@@ -283,6 +284,7 @@ export default function PublishModelDialog({
               className="val-btn val-btn-primary"
               disabled={!canSubmit}
             >
+              {submitting && <span className="val-btn-spinner" />}
               {submitting ? "Publishing..." : "Publish Model"}
             </button>
           </div>
