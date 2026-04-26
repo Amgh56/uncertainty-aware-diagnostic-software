@@ -11,6 +11,7 @@ import torch
 
 from services.calibration_service import pick_device
 from azure_client import BUCKET_MODELS, download_from_bucket, upload_image
+from enums import ArtifactType, UncertaintyLevel
 
 MAX_CACHED_MODELS = 5
 
@@ -24,7 +25,7 @@ class LoadedModel:
     lamhat: float
     alpha: float
     labels: list[str]
-    artifact_type: str = "pytorch"
+    artifact_type: str = ArtifactType.PYTORCH.value
 
 
 @dataclass
@@ -123,10 +124,10 @@ class MLState:
 
 def classify_uncertainty(p: float) -> str:
     if p >= 0.7:
-        return "Low"
+        return UncertaintyLevel.LOW.value
     elif p >= 0.4:
-        return "Medium"
-    return "High"
+        return UncertaintyLevel.MEDIUM.value
+    return UncertaintyLevel.HIGH.value
 
 
 def load_model_from_bytes(model_bytes: bytes, device: str) -> torch.nn.Module:

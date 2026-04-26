@@ -13,7 +13,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import relationship
 from database import Base
-from enums import JobStatus, ModelVisibility, UserRole
+from enums import ArtifactType, JobStatus, ModelVisibility, UserRole
 
 
 class User(Base):
@@ -152,7 +152,7 @@ class PublishedModel(Base):
 
     # Technical package
     artifact_path = Column(String(500), nullable=False)
-    artifact_type = Column(String(20), nullable=False, default="pytorch")
+    artifact_type = Column(String(20), nullable=False, default=ArtifactType.PYTORCH.value)
     config_json = Column(Text, nullable=True)
     labels_json = Column(Text, nullable=False)
     num_labels = Column(Integer, nullable=False)

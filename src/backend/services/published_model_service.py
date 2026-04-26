@@ -9,7 +9,7 @@ import torch
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from enums import JobStatus, ModelVisibility
+from enums import ArtifactType, JobStatus, ModelVisibility, UserRole, ValidationVerdict
 from models import CalibrationJob, User, PublishedModel
 from services.calibration_service import result_path
 from azure_client import (
@@ -76,14 +76,14 @@ def publish_model(
             detail="This calibration job has already been published",
         )
 
-    # Check verdict — only "good" models can be published
+    # Check verdict — only good models can be published
     verdict = job.validation_verdict
     if verdict is None:
         raise HTTPException(
             status_code=400,
             detail="Validation has not been run yet. Please validate the calibration first.",
         )
-    if verdict != "good":
+    if verdict != ValidationVerdict.GOOD.value:
         raise HTTPException(
             status_code=400,
             detail="Only models with a 'good' validation verdict can be published. "
@@ -116,10 +116,10 @@ def publish_model(
         raise HTTPException(status_code=404, detail="Model artifact not found")
 
     # Detect artifact type (try torchscript first)
-    artifact_type = "pytorch"
+    artifact_type = ArtifactType.PYTORCH.value
     try:
         torch.jit.load(io.BytesIO(model_bytes), map_location="cpu")
-        artifact_type = "torchscript"
+        artifact_type = ArtifactType.TORCHSCRIPT.value
     except Exception:
         pass
 
@@ -261,12 +261,12 @@ def get_model_detail(
     if not is_owner:
         vis = model.visibility
         role = requesting_user.role
-        if role == "clinician" and vis not in (
+        if role == UserRole.CLINICIAN.value and vis not in (
             ModelVisibility.CLINICIAN.value,
             ModelVisibility.CLINICIAN_AND_COMMUNITY.value,
         ):
             raise HTTPException(status_code=403, detail="Access denied")
-        if role == "developer" and vis not in (
+        if role == UserRole.DEVELOPER.value and vis not in (
             ModelVisibility.COMMUNITY.value,
             ModelVisibility.CLINICIAN_AND_COMMUNITY.value,
         ):

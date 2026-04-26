@@ -94,7 +94,7 @@ def make_patient(db, user_id: int, mrn: str = "MRN001"):
 
 def make_published_model(db, developer_id: int, job_id: str, lamhat: float = 0.42, name: str = "Model A"):
     """Insert an active published model into the test DB."""
-    from enums import ModelVisibility
+    from enums import ArtifactType, ModelVisibility, ValidationVerdict
     from models import PublishedModel
 
     model = PublishedModel(
@@ -107,12 +107,12 @@ def make_published_model(db, developer_id: int, job_id: str, lamhat: float = 0.4
         modality="X-ray",
         intended_use="Testing",
         artifact_path=f"{str(uuid.uuid4())}/model.pth",
-        artifact_type="pytorch",
+        artifact_type=ArtifactType.PYTORCH.value,
         labels_json=json.dumps(["label_a", "label_b"]),
         num_labels=2,
         alpha=0.1,
         lamhat=lamhat,
-        validation_verdict="good",
+        validation_verdict=ValidationVerdict.GOOD.value,
         visibility=ModelVisibility.CLINICIAN.value,
         is_active=True,
         created_at=datetime.now(timezone.utc),
@@ -124,10 +124,12 @@ def make_published_model(db, developer_id: int, job_id: str, lamhat: float = 0.4
     return model
 
 
-def make_done_job(db, developer_id: int, verdict: str = "good"):
+def make_done_job(db, developer_id: int, verdict: str | None = None):
     """Insert a completed CalibrationJob directly into the test DB."""
-    from enums import JobStatus
+    from enums import JobStatus, ValidationVerdict
     from models import CalibrationJob
+
+    verdict = verdict or ValidationVerdict.GOOD.value
 
     job = CalibrationJob(
         id=str(uuid.uuid4()),

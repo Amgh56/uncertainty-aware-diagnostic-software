@@ -3,6 +3,7 @@ from typing import Optional
 
 from pydantic import BaseModel, Field
 
+from enums import UncertaintyLevel, ValidationVerdict
 from schemas.patient import PatientSummary
 
 
@@ -10,7 +11,7 @@ class FindingItem(BaseModel):
     """Single disease finding with probability and uncertainty level."""
     finding: str = Field(..., examples=["Cardiomegaly"])
     probability: float = Field(..., ge=0, le=1, examples=[0.8234])
-    uncertainty: str = Field(..., examples=["Low"])
+    uncertainty: UncertaintyLevel = Field(..., examples=["Low"])
     in_prediction_set: bool
 
 
@@ -21,7 +22,7 @@ class ModelInfoSummary(BaseModel):
     version: str
     modality: str
     num_labels: int
-    validation_verdict: str
+    validation_verdict: ValidationVerdict
 
 
 class PredictionResponse(BaseModel):

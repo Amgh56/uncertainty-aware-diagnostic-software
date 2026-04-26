@@ -13,7 +13,7 @@ from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from database import SessionLocal
-from enums import JobStatus
+from enums import JobStatus, ValidationVerdict
 from models import CalibrationJob, User
 from azure_client import (
     BUCKET_CALIBRATION,
@@ -637,11 +637,11 @@ def compute_validation_sweep(probs, labels, pos_mask, label_names, job_alpha):
     )
 
     if violations <= 2 and monotonic_breaks <= 3 and job_fnr <= job_alpha + 0.02:
-        verdict = "good"
+        verdict = ValidationVerdict.GOOD.value
     elif violations <= 8 and job_fnr <= job_alpha + 0.1:
-        verdict = "review"
+        verdict = ValidationVerdict.REVIEW.value
     else:
-        verdict = "unreliable"
+        verdict = ValidationVerdict.UNRELIABLE.value
 
     return {
         "sweep": sweep,

@@ -3,7 +3,7 @@ from typing import Optional
 
 from pydantic import BaseModel, Field
 
-from enums import JobStatus
+from enums import JobStatus, ValidationVerdict
 
 
 class JobCreateResponse(BaseModel):
@@ -30,7 +30,7 @@ class JobStatusResponse(BaseModel):
     alpha: float
     result_json: Optional[str] = None
     error_message: Optional[str] = None
-    validation_verdict: Optional[str] = None
+    validation_verdict: Optional[ValidationVerdict] = None
     is_published: bool = False
     created_at: datetime
     completed_at: Optional[datetime] = None

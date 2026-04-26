@@ -3,7 +3,7 @@ from typing import Optional
 
 from pydantic import BaseModel, Field
 
-from enums import ModelVisibility
+from enums import ArtifactType, ModelVisibility, ValidationVerdict
 
 
 class PublishModelRequest(BaseModel):
@@ -27,14 +27,14 @@ class PublishedModelResponse(BaseModel):
     version: str
     modality: str
     intended_use: str
-    artifact_type: str
+    artifact_type: ArtifactType
     labels_json: str
     num_labels: int
     alpha: float
     lamhat: float
-    validation_verdict: str
+    validation_verdict: ValidationVerdict
     validation_metrics_json: Optional[str] = None
-    visibility: str
+    visibility: ModelVisibility
     is_active: bool
     consent_given_at: Optional[datetime] = None
     developer_name: Optional[str] = None
@@ -54,8 +54,8 @@ class PublishedModelSummary(BaseModel):
     num_labels: int
     alpha: float
     lamhat: float
-    validation_verdict: str
-    visibility: str
+    validation_verdict: ValidationVerdict
+    visibility: ModelVisibility
     is_active: bool
     developer_name: Optional[str] = None
     created_at: datetime

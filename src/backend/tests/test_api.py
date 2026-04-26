@@ -15,7 +15,7 @@ from tests.helpers import (
     make_patient,
     make_published_model,
 )
-from enums import JobStatus
+from enums import JobStatus, UncertaintyLevel, ValidationVerdict
 
 
 def _auth(token: str) -> dict:
@@ -135,7 +135,7 @@ def _publish_payload(job_id: str, visibility: str = "private", consent: bool = F
 @patch("services.published_model_service.load_validation_artifacts", return_value=None)
 def test_publish_without_good_verdict(mock_artifacts, client, db, developer, dev_token):
     """A job with verdict='review' must be rejected with 400."""
-    job = make_done_job(db, developer.id, verdict="review")
+    job = make_done_job(db, developer.id, verdict=ValidationVerdict.REVIEW.value)
     response = client.post(
         "/models/publish",
         headers=_auth(dev_token),
@@ -160,8 +160,8 @@ def test_inference_uses_selected_model(client, db, developer, dev_token):
     import cv2, numpy as np
 
     # Create two published models with distinct lamhats so we can tell them apart
-    job_a = make_done_job(db, developer.id, verdict="good")
-    job_b = make_done_job(db, developer.id, verdict="good")
+    job_a = make_done_job(db, developer.id, verdict=ValidationVerdict.GOOD.value)
+    job_b = make_done_job(db, developer.id, verdict=ValidationVerdict.GOOD.value)
     model_a = make_published_model(db, developer.id, job_a.id, lamhat=0.30, name="Model A")
     model_b = make_published_model(db, developer.id, job_b.id, lamhat=0.80, name="Model B")
 
@@ -175,8 +175,18 @@ def test_inference_uses_selected_model(client, db, developer, dev_token):
 
     # Fake findings that run_inference would return
     fake_findings = [
-        {"finding": "label_a", "probability": 0.9, "uncertainty": "low",  "in_prediction_set": True},
-        {"finding": "label_b", "probability": 0.1, "uncertainty": "high", "in_prediction_set": False},
+        {
+            "finding": "label_a",
+            "probability": 0.9,
+            "uncertainty": UncertaintyLevel.LOW.value,
+            "in_prediction_set": True,
+        },
+        {
+            "finding": "label_b",
+            "probability": 0.1,
+            "uncertainty": UncertaintyLevel.HIGH.value,
+            "in_prediction_set": False,
+        },
     ]
 
     captured = {}
@@ -212,7 +222,7 @@ def test_inference_uses_selected_model(client, db, developer, dev_token):
 @patch("services.published_model_service.load_validation_artifacts", return_value=None)
 def test_publish_without_consent(mock_artifacts, client, db, developer, dev_token):
     """Non-private visibility without consent must be rejected with 400."""
-    job = make_done_job(db, developer.id, verdict="good")
+    job = make_done_job(db, developer.id, verdict=ValidationVerdict.GOOD.value)
     response = client.post(
         "/models/publish",
         headers=_auth(dev_token),
