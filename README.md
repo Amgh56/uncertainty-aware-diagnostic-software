@@ -9,22 +9,21 @@
     </td>
   </tr>
 </table>
-
 SafeDx combines software engineering with state-of-the-art conformal prediction, specifically **Conformal Risk Control (CRC)**. AI models are often overconfident, and in a field as sensitive as medicine there is no room for unchecked mistakes. SafeDx provides a full calibration pipeline through a web interface, allowing developers to publish statistically guaranteed models that clinicians can use with confidence.
-
+ 
 ---
-
+ 
 ## Who is this for?
-
+ 
 | Role | What they do |
 |---|---|
 | **Developers / Researchers** | Upload trained models, run calibration, validate results, publish to the community |
 | **Clinicians** | Browse published calibrated models, create patient cases, run uncertainty-aware diagnoses |
-
+ 
 ---
-
+ 
 ## How it works
-
+ 
 ```
 Developer uploads model + calibration dataset
         ↓
@@ -38,11 +37,11 @@ Model published to the platform
         ↓
 Clinician selects model → uploads patient image → gets prediction set + uncertainty level
 ```
-
+ 
 ---
-
+ 
 ## Key Features
-
+ 
 - **Calibration pipeline** — computes λ̂ thresholds using Conformal Risk Control
 - **Validation graphs** — FNR, average set size, and calibration quality visualised
 - **Model publishing** — visibility controls and community sharing
@@ -51,11 +50,10 @@ Clinician selects model → uploads patient image → gets prediction set + unce
 - **Domain-agnostic** — works across chest X-ray, retinal imaging, and beyond
 - **Azure Blob Storage** — all model and dataset artifacts stored securely
 - **Supabase (PostgreSQL)** — robust relational database backing
-
 ---
-
+ 
 ## Tech Stack
-
+ 
 | Layer | Technology |
 |---|---|
 | Frontend | React, TypeScript, Vite |
@@ -64,11 +62,11 @@ Clinician selects model → uploads patient image → gets prediction set + unce
 | Storage | Azure Blob Storage |
 | ML | PyTorch, TorchScript |
 | Calibration | Conformal Prediction (CRC) |
-
+ 
 ---
-
+ 
 ## Project Structure
-
+ 
 ```
 src/
 ├── frontend/               # React/Vite frontend
@@ -79,66 +77,80 @@ src/
     ├── tests/              # Backend test suite
     └── ODIR-5K/            # Retinal imaging training pipeline
 ```
-
+ 
 ---
-
+ 
 ## Setup
-
+ 
 ### Prerequisites
-
+ 
 - Python 3.10+
 - Node.js 18+
+- Conda (recommended for environment management)
 - Supabase project (PostgreSQL)
 - Azure Storage account
-
-### Backend
-
+### 1. Clone the repository
+ 
+```bash
+git clone https://github.com/your-username/safedx.git
+cd safedx
+```
+ 
+### 2. Create and activate the Conda environment
+ 
+```bash
+conda create -n safedx python=3.10
+conda activate safedx
+```
+ 
+### 3. Backend
+ 
 ```bash
 cd src/backend
 pip install -r requirements.txt
 uvicorn api:app --reload
 ```
-
-### Frontend
-
+ 
+### 4. Frontend
+ 
 ```bash
 cd src/frontend
 npm install
 npm run dev
 ```
-
-### Environment Variables
-
+ 
+### 5. Environment Variables
+ 
 Create a `.env` file in `src/backend/` with:
-
+ 
 ```
 DATABASE_URL=postgresql://...
 AZURE_STORAGE_CONNECTION_STRING=...
 AZURE_CONTAINER_NAME=...
 ```
-
+ 
 ---
-
+ 
 ## API Docs
-
+ 
 Once the backend is running, full interactive API documentation is available at:
-
+ 
 ```
 http://127.0.0.1:8000/docs
 ```
-
+ 
 ---
-
+ 
 ## Future Work
-
+ 
 - Cloud deployment to accelerate calibration and inference jobs
 - Per-organisation access control, allowing institutions to adopt SafeDx as a SaaS product where clinicians only access their organisation's published models
 - Extended risk control options, including False Positive Rate (FPR) control
-
 ---
-
+ 
 ## Contact
-
+ 
 For questions or collaboration, reach out at [Abdullahmmmaghrabi@gmail.com](mailto:Abdullahmmmaghrabi@gmail.com)
-
+ 
 ---
+ 
