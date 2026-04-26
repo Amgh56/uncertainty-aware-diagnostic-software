@@ -1,7 +1,5 @@
-"""Email sending via Mailtrap SMTP using fastapi-mail."""
 
 import os
-
 from fastapi_mail import ConnectionConfig, FastMail, MessageSchema, MessageType
 
 conf = ConnectionConfig(

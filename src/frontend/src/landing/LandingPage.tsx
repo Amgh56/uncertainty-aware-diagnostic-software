@@ -4,8 +4,6 @@ import { useAuth } from "../context/AuthContext";
 import doctorsIllustration from "../assets/doctors-illustration.svg";
 import {
   Stethoscope,
-  BarChart3,
-  Eye,
   FlaskConical,
   Code,
   Activity,
@@ -18,11 +16,9 @@ import {
   Github,
   Mail,
   Phone,
-  ShieldCheck,
   FileCheck,
   Users,
   UploadCloud,
-  ClipboardCheck,
 } from "lucide-react";
 
 /* ── Marquee data ── */

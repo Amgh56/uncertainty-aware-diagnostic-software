@@ -4,7 +4,6 @@ Uses FastAPI TestClient with an in-memory SQLite DB (injected via conftest).
 All Azure storage calls are mocked by the autouse mock_azure fixture in conftest.
 """
 
-import json
 from unittest.mock import patch
 
 import pytest
@@ -15,7 +14,6 @@ from tests.helpers import (
     make_done_job,
     make_patient,
     make_published_model,
-    make_torchscript_bytes,
 )
 from enums import JobStatus
 

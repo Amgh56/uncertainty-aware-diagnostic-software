@@ -5,6 +5,8 @@ import { useAuth } from "../context/AuthContext";
 import { getPatientPredictions, PatientPredictionsResponse } from "./api/clinicianApi";
 import ClinicianLayout from "./ClinicianLayout";
 
+const PAGE_SIZE = 8;
+
 export default function PatientProfile() {
   const { id } = useParams<{ id: string }>();
   const { token } = useAuth();
@@ -12,9 +14,11 @@ export default function PatientProfile() {
   const [data, setData] = useState<PatientPredictionsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(0);
 
   useEffect(() => {
     if (!id || !token) return;
+    setPage(0);
     getPatientPredictions(Number(id), token)
       .then(setData)
       .catch((err: Error) => setError(err.message))
@@ -23,6 +27,9 @@ export default function PatientProfile() {
 
   const patient = data?.patient;
   const predictions = data?.predictions ?? [];
+  const totalPages = Math.max(1, Math.ceil(predictions.length / PAGE_SIZE));
+  const start = page * PAGE_SIZE;
+  const paginatedPredictions = predictions.slice(start, start + PAGE_SIZE);
 
   return (
     <ClinicianLayout title="" subtitle="">
@@ -36,7 +43,6 @@ export default function PatientProfile() {
 
       {patient && (
         <div className="patient-overview-card">
-          <span className="patient-overview-pill">PATIENT OVERVIEW</span>
           <div className="patient-overview-body">
             <div className="patient-overview-left">
               <h1 className="patient-overview-name">
@@ -81,7 +87,7 @@ export default function PatientProfile() {
         <section className="profile-predictions">
           <div className="profile-content-card">
             <div className="profile-card-grid">
-            {predictions.map((pred) => (
+            {paginatedPredictions.map((pred) => (
               <div key={pred.id} className="profile-prediction-card">
                 <div className="profile-card-image-wrap">
                   <img
@@ -129,6 +135,30 @@ export default function PatientProfile() {
               </div>
             ))}
             </div>
+
+            {predictions.length > PAGE_SIZE && (
+              <div className="home-pagination profile-pagination">
+                <span className="home-pagination-info">
+                  {start + 1}-{Math.min(start + PAGE_SIZE, predictions.length)} of {predictions.length} cases
+                </span>
+                <div className="home-pagination-btns">
+                  <button
+                    className="home-page-btn"
+                    disabled={page === 0}
+                    onClick={() => setPage((p) => p - 1)}
+                  >
+                    Previous
+                  </button>
+                  <button
+                    className="home-page-btn"
+                    disabled={page >= totalPages - 1}
+                    onClick={() => setPage((p) => p + 1)}
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </section>
       )}

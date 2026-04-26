@@ -8,6 +8,7 @@ interface ClinicianLayoutProps {
   subtitle: string;
   pill?: string;
   patientBar?: ReactNode;
+  headerBefore?: ReactNode;
   children: ReactNode;
 }
 
@@ -134,7 +135,7 @@ function HamburgerIcon() {
   );
 }
 
-export default function ClinicianLayout({ title, subtitle, pill, patientBar, children }: ClinicianLayoutProps) {
+export default function ClinicianLayout({ title, subtitle, pill, patientBar, headerBefore, children }: ClinicianLayoutProps) {
   const { pathname } = useLocation();
   const { doctor, logout } = useAuth();
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem("clinician-sidebar-collapsed") === "1");
@@ -293,6 +294,8 @@ export default function ClinicianLayout({ title, subtitle, pill, patientBar, chi
 
       <div className="clinician-content-shell">
         <main className="clinician-main">
+          {headerBefore}
+
           {title && (
             <div className="page-banner-card">
               {pill && <span className="page-banner-pill">{pill}</span>}

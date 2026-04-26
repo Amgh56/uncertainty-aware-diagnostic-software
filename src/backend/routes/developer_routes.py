@@ -1,5 +1,3 @@
-"""Developer route handlers: register, calibration job CRUD."""
-
 from fastapi import (
     APIRouter,
     BackgroundTasks,

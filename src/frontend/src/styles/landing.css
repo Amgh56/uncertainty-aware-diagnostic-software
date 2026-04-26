@@ -184,30 +184,6 @@
   gap: 24px;
 }
 
-.landing-hero-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 12px;
-  font-weight: 700;
-  color: #2563eb;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-}
-
-.landing-hero-badge-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #2563eb;
-  animation: landing-dot-pulse 2s ease-in-out infinite;
-}
-
-@keyframes landing-dot-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.3; }
-}
-
 .landing-hero-title {
   margin: 0;
   font-size: 60px;
@@ -481,26 +457,6 @@
   max-width: 320px;
 }
 
-.landing-clinician-features {
-  display: flex;
-  justify-content: center;
-  flex-wrap: wrap;
-  gap: 16px;
-}
-
-.landing-clinician-feat {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 20px;
-  font-size: 13px;
-  font-weight: 600;
-  color: #0f766e;
-  background: #f0fdfa;
-  border: 1px solid #ccfbf1;
-  border-radius: 999px;
-}
-
 /* ═══ SECTION 6: FOR DEVELOPERS (DARK) ═══ */
 .landing-devs {
   padding: 100px 48px;
@@ -724,34 +680,6 @@
   color: #64748b;
 }
 
-/* ═══ SECTION 9: CTA ═══ */
-.landing-cta {
-  padding: 100px 48px;
-  text-align: center;
-  background: linear-gradient(180deg, #f8fafc 0%, #eff6ff 100%);
-}
-
-.landing-cta-inner {
-  max-width: 620px;
-  margin: 0 auto;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.landing-cta .landing-subheading {
-  margin-left: auto;
-  margin-right: auto;
-  margin-bottom: 32px;
-}
-
-.landing-cta-actions {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 14px;
-}
-
 /* ═══ SECTION 10: FOOTER ═══ */
 .landing-footer {
   background: linear-gradient(180deg, #0f172a 0%, #111827 100%);
@@ -965,26 +893,6 @@
 
   .landing-devs {
     padding: 60px 20px;
-  }
-
-  .landing-clinician-features {
-    flex-direction: column;
-    align-items: center;
-  }
-
-  .landing-cta {
-    padding: 60px 20px;
-  }
-
-  .landing-cta-actions {
-    flex-direction: column;
-    width: 100%;
-  }
-
-  .landing-cta-actions .landing-btn-primary,
-  .landing-cta-actions .landing-btn-outline {
-    width: 100%;
-    justify-content: center;
   }
 
   .landing-footer {

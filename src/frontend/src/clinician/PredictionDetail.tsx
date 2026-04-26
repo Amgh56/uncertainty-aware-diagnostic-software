@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { ArrowLeft, ZoomIn, ZoomOut } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { getPrediction, PredictionResponse } from "./api/clinicianApi";
 import ClinicianLayout from "./ClinicianLayout";
@@ -22,6 +23,7 @@ export default function PredictionDetail() {
   const [data, setData] = useState<PredictionResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [zoom, setZoom] = useState(100);
 
   useEffect(() => {
     getPrediction(id!, token!)
@@ -34,7 +36,7 @@ export default function PredictionDetail() {
 
   if (loading) {
     return (
-      <ClinicianLayout title="Case Detail" subtitle="Loading the saved diagnostic case." pill="CASE DETAIL">
+      <ClinicianLayout title="" subtitle="">
         <div className="panel clinician-feedback-panel">
           <div className="empty-state">
             <div className="spinner-large" />
@@ -47,7 +49,7 @@ export default function PredictionDetail() {
 
   if (error || !data) {
     return (
-      <ClinicianLayout title="Case Detail" subtitle="We couldn't load this saved case." pill="CASE DETAIL">
+      <ClinicianLayout title="" subtitle="">
         <div className="panel clinician-feedback-panel">
           <div className="empty-state">
             <p className="empty-title">Error: {error ?? "Unknown error"}</p>
@@ -61,12 +63,22 @@ export default function PredictionDetail() {
   }
 
   const numLabels = data.findings?.length ?? 5;
+  const patientProfilePath = `/patients/${data.patient.id}`;
 
   return (
     <ClinicianLayout
       title="Case Detail"
       subtitle={`${data.patient.first_name} ${data.patient.last_name} (MRN: ${data.patient.mrn})`}
-         >
+      headerBefore={
+        <button
+          className="profile-back-btn"
+          onClick={() => navigate(patientProfilePath)}
+        >
+          <ArrowLeft size={18} />
+          <span>Back to Patient Profile</span>
+        </button>
+      }
+    >
         <div className="dash-grid">
           <section className="panel">
             <div className="panel-header">
@@ -83,8 +95,28 @@ export default function PredictionDetail() {
                   src={data.image_path}
                   alt="Chest X-ray"
                   className="xray-image"
+                  style={{ transform: `scale(${zoom / 100})` }}
                 />
               </div>
+            </div>
+            <div className="panel-footer">
+              <div className="zoom-controls">
+                <button
+                  className="zoom-btn"
+                  onClick={() => setZoom((value) => Math.max(50, value - 25))}
+                  aria-label="Zoom out"
+                >
+                  <ZoomOut size={16} />
+                </button>
+                <button
+                  className="zoom-btn"
+                  onClick={() => setZoom((value) => Math.min(200, value + 25))}
+                  aria-label="Zoom in"
+                >
+                  <ZoomIn size={16} />
+                </button>
+              </div>
+              <span className="zoom-label">Zoom: {zoom}%</span>
             </div>
           </section>
 

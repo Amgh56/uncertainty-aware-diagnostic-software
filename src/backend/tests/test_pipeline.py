@@ -3,11 +3,8 @@ Unit tests for pure functions in services/calibration_service.py.
 No real files, models, or Azure calls are used — all data is synthetic numpy/cv2.
 """
 
-import io
-
 import cv2
 import numpy as np
-import pytest
 
 from services.calibration_service import compute_lamhat, false_negative_rate
 from services.calibration_service import preprocess_image_bytes

@@ -1,9 +1,3 @@
-"""
-ML state holder and dynamic model loader.
-
-Published models are loaded on-demand from Supabase with LRU cache.
-"""
-
 import io
 import json
 import time
@@ -37,14 +31,12 @@ class LoadedModel:
 class MLState:
     """Holds a cache of published models loaded from Supabase."""
 
-    # LRU cache for published models: model_id -> LoadedModel
     _model_cache: OrderedDict = field(default_factory=OrderedDict)
 
     def load_published_model(self, published_model) -> LoadedModel:
         """Load a published model, using cache if available."""
         model_id = published_model.id
 
-        # Cache hit — move to end (most recently used)
         if model_id in self._model_cache:
             self._model_cache.move_to_end(model_id)
             return self._model_cache[model_id]
@@ -59,15 +51,12 @@ class MLState:
 
         device = pick_device()
 
-        # Load model from bytes
-        model_obj = _load_model_from_bytes(model_bytes, device)
+        model_obj = load_model_from_bytes(model_bytes, device)
 
-        # Parse config
         config_dict = None
         if published_model.config_json:
             config_dict = json.loads(published_model.config_json)
 
-        # Parse labels
         labels = json.loads(published_model.labels_json)
 
         loaded = LoadedModel(
@@ -80,7 +69,6 @@ class MLState:
             artifact_type=published_model.artifact_type,
         )
 
-        # Evict LRU if at capacity
         if len(self._model_cache) >= MAX_CACHED_MODELS:
             self._model_cache.popitem(last=False)
 
@@ -95,20 +83,20 @@ class MLState:
         loaded = self.load_published_model(published_model)
 
         # Preprocess image using the model's config
-        img_array = _preprocess_with_config(img_bytes, loaded.config)
+        img_array = preprocess_with_config(img_bytes, loaded.config)
         x = torch.tensor(
             img_array[np.newaxis], dtype=torch.float32, device=loaded.device
         )
 
         # Forward pass
-        probs = _forward(loaded.model, x)
+        probs = forward(loaded.model, x)
 
         # Build findings using the model's labels and lamhat
         findings = []
         for i, label in enumerate(loaded.labels):
             p = float(probs[i])
             in_set = bool(p >= loaded.lamhat)
-            uncertainty = _classify_uncertainty(p)
+            uncertainty = classify_uncertainty(p)
             findings.append({
                 "finding": label,
                 "probability": round(p, 4),
@@ -133,7 +121,7 @@ class MLState:
 
 # ── Helpers ──────────────────────────────────────────────────
 
-def _classify_uncertainty(p: float) -> str:
+def classify_uncertainty(p: float) -> str:
     if p >= 0.7:
         return "Low"
     elif p >= 0.4:
@@ -141,7 +129,7 @@ def _classify_uncertainty(p: float) -> str:
     return "High"
 
 
-def _load_model_from_bytes(model_bytes: bytes, device: str) -> torch.nn.Module:
+def load_model_from_bytes(model_bytes: bytes, device: str) -> torch.nn.Module:
     """Load a model from bytes (TorchScript or full saved model)."""
     buffer = io.BytesIO(model_bytes)
 
@@ -162,7 +150,7 @@ def _load_model_from_bytes(model_bytes: bytes, device: str) -> torch.nn.Module:
     raise ValueError("Cannot load model from bytes")
 
 
-def _preprocess_with_config(img_bytes: bytes, config: dict | None) -> np.ndarray:
+def preprocess_with_config(img_bytes: bytes, config: dict | None) -> np.ndarray:
     """Preprocess image bytes → float32 tensor (3, H, W) ready for any PyTorch model.
 
     Modality is auto-detected from the image data — no config field required:
@@ -209,7 +197,7 @@ def _preprocess_with_config(img_bytes: bytes, config: dict | None) -> np.ndarray
         return rgb.transpose(2, 0, 1)  # (H, W, 3) → (3, H, W)
 
 
-def _forward(model: torch.nn.Module, x: torch.Tensor) -> np.ndarray:
+def forward(model: torch.nn.Module, x: torch.Tensor) -> np.ndarray:
     """Run inference and return sigmoid probabilities as numpy (n_classes,)."""
     model.eval()
     with torch.no_grad():
@@ -223,5 +211,4 @@ def _forward(model: torch.nn.Module, x: torch.Tensor) -> np.ndarray:
         return torch.sigmoid(logits).cpu().numpy()[0]
 
 
-# Module-level singleton
 ml_state = MLState()

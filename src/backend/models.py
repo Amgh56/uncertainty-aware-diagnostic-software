@@ -1,5 +1,4 @@
 from datetime import datetime, timezone
-
 from sqlalchemy import (
     Boolean,
     Column,
@@ -13,7 +12,6 @@ from sqlalchemy import (
     UniqueConstraint,
 )
 from sqlalchemy.orm import relationship
-
 from database import Base
 from enums import JobStatus, ModelVisibility, UserRole
 

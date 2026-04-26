@@ -333,59 +333,6 @@
   }
 }
 
-/* ===== Doctor Name Badge ===== */
-
-.doctor-name {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text);
-  padding: 4px 12px;
-  border-radius: 999px;
-  background: var(--surface-muted);
-  border: 1px solid var(--line);
-}
-
-/* ===== Nav Buttons ===== */
-
-.nav-btn {
-  font-size: 13px;
-  font-weight: 500;
-  padding: 6px 14px;
-  border-radius: 8px;
-  border: 1px solid var(--line);
-  background: #fff;
-  color: var(--text);
-  cursor: pointer;
-  font-family: "DM Sans", sans-serif;
-  transition: background 0.15s, border-color 0.15s;
-}
-
-.nav-btn:hover {
-  background: var(--surface-muted);
-  border-color: #cbd5e1;
-}
-
-.nav-icon-btn {
-  display: grid;
-  place-items: center;
-  padding: 6px 8px;
-  color: var(--text-soft);
-}
-
-.nav-icon-btn:hover {
-  color: var(--brand);
-}
-
-.logout-btn {
-  color: #dc2626;
-  border-color: #fecaca;
-}
-
-.logout-btn:hover {
-  background: #fef2f2;
-  border-color: #fca5a5;
-}
-
 /* ===== Patient Form ===== */
 
 .patient-form-wrapper {
@@ -423,60 +370,6 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
-}
-
-/* ===== History Table ===== */
-
-.history-panel {
-  max-width: 1000px;
-  margin: 0 auto;
-}
-
-.history-table {
-  padding: 0;
-}
-
-.history-table-header {
-  display: flex;
-  gap: 8px;
-  padding: 12px 20px;
-  border-bottom: 1px solid var(--line);
-  font-size: 10px;
-  color: #94a3b8;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  font-weight: 700;
-}
-
-.history-table-row {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  padding: 14px 20px;
-  border-bottom: 1px solid var(--line-soft);
-  font-size: 14px;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-
-.history-table-row:hover {
-  background: var(--brand-soft);
-}
-
-.history-col-patient {
-  flex: 2;
-  color: var(--text);
-}
-
-.history-col {
-  flex: 1;
-  color: var(--text-soft);
-  font-size: 13px;
-}
-
-.history-date {
-  font-size: 12px;
-  color: var(--text-faint);
 }
 
 /* ===== Home Page ===== */
@@ -640,32 +533,6 @@
   gap: 5px;
   font-size: 13px;
   color: var(--text-faint);
-}
-
-.home-view-btn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 16px;
-  border: none;
-  border-radius: 8px;
-  background: linear-gradient(180deg, #3b82f6, #2563eb);
-  color: #fff;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  font-family: "DM Sans", sans-serif;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-.home-view-btn:hover:not(:disabled) {
-  filter: brightness(0.96);
-}
-
-.home-view-btn:disabled {
-  background: #93c5fd;
-  cursor: not-allowed;
 }
 
 .home-view-profile-link {
@@ -840,25 +707,6 @@
   gap: 16px;
 }
 
-.profile-section-title {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: 0;
-  font-size: 17px;
-  font-weight: 700;
-  color: var(--text);
-}
-
-.profile-count-badge {
-  font-size: 12px;
-  font-weight: 600;
-  padding: 2px 10px;
-  border-radius: 999px;
-  background: #eff6ff;
-  color: #2563eb;
-}
-
 .profile-card-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -898,6 +746,7 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+  flex: 1;
   padding: 18px 20px 20px;
 }
 
@@ -949,9 +798,11 @@
 .profile-card-view-btn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  align-self: center;
   gap: 6px;
   padding: 0;
-  margin-top: 4px;
+  margin-top: auto;
   border: none;
   background: none;
   color: #94a3b8;
@@ -964,6 +815,10 @@
 
 .profile-card-view-btn:hover {
   color: #2563eb;
+}
+
+.profile-pagination {
+  margin-top: 24px;
 }
 
 @media (max-width: 760px) {
@@ -983,22 +838,6 @@
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
   padding: 24px 28px;
   margin-bottom: 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.patient-overview-pill {
-  display: inline-flex;
-  align-items: center;
-  padding: 5px 14px;
-  border-radius: 999px;
-  background: #eff6ff;
-  color: #2563eb;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  width: fit-content;
 }
 
 .patient-overview-body {
@@ -1074,27 +913,8 @@
 }
 
 @media (max-width: 760px) {
-  .auth-card {
-    padding: 28px 20px;
-  }
-
   .patient-form-row {
     grid-template-columns: 1fr;
-  }
-
-  .history-table-header {
-    display: none;
-  }
-
-  .history-table-row {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 6px;
-  }
-
-  .history-col-patient,
-  .history-col {
-    flex: none;
   }
 
   .home-top-bar {
@@ -1111,11 +931,6 @@
     align-items: flex-start;
     gap: 14px;
     padding: 16px;
-  }
-
-  .home-view-btn {
-    width: 100%;
-    justify-content: center;
   }
 }
 
@@ -1271,42 +1086,6 @@
   border-color: var(--brand);
 }
 
-/* Format reference */
-.dev-format-details {
-  padding: 0;
-  margin-bottom: 20px;
-  overflow: hidden;
-}
-
-.dev-format-summary {
-  padding: 14px 20px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-soft);
-  cursor: pointer;
-  list-style: none;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.dev-format-summary::before {
-  content: "▶";
-  font-size: 10px;
-  transition: transform 0.15s;
-}
-
-details[open] .dev-format-summary::before {
-  transform: rotate(90deg);
-}
-
-.dev-format-body {
-  padding: 0 20px 20px;
-  font-size: 13px;
-  color: var(--text-soft);
-  line-height: 1.6;
-}
-
 .dev-format-pre {
   background: #f1f5f9;
   border: 1px solid var(--line);
@@ -1317,11 +1096,6 @@ details[open] .dev-format-summary::before {
   white-space: pre;
   margin: 8px 0;
   font-family: "Menlo", "Fira Mono", "Consolas", monospace;
-}
-
-.dev-format-list {
-  margin: 8px 0 0;
-  padding-left: 20px;
 }
 
 /* ── Upload requirements grid ── */

@@ -1,13 +1,6 @@
-"""
-Shared fixtures for all test suites.
-
-Environment variables MUST be set before any app module is imported so that
-database.py and auth.py initialise with test values.
-"""
 
 import os
 
-# ── Must come before any app imports ─────────────────────────────────────
 os.environ["JWT_SECRET_KEY"] = "test-secret-key-for-pytest-only!!"
 os.environ["DATABASE_URL"] = "sqlite:///:memory:"
 
@@ -17,9 +10,6 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 from unittest.mock import patch
 
-# Import and patch the database module before api.py ever imports it.
-# StaticPool ensures all connections (including the startup event) share
-# the same in-memory database.
 import database as _db_module
 from database import Base, get_db
 
@@ -30,15 +20,13 @@ _TEST_ENGINE = create_engine(
 )
 _TestSession = sessionmaker(autocommit=False, autoflush=False, bind=_TEST_ENGINE)
 
-# Patch before api.py is imported so `from database import engine` in api.py
-# binds to _TEST_ENGINE (Python module imports are cached).
 _db_module.engine = _TEST_ENGINE
 _db_module.SessionLocal = _TestSession
 
-from auth import create_access_token, hash_password  # noqa: E402
-from enums import UserRole  # noqa: E402
-from models import User  # noqa: E402
-from tests.helpers import make_dataset_zip, make_torchscript_bytes  # noqa: E402
+from auth import create_access_token, hash_password 
+from enums import UserRole  
+from models import User 
+from tests.helpers import make_dataset_zip, make_torchscript_bytes  
 
 
 # ── Database lifecycle ────────────────────────────────────────────────────

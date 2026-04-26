@@ -1,25 +1,3 @@
-"""
-One-time conversion utility: state dict → TorchScript.
-
-Converts a PyTorch state dict (.pth) into a self-contained TorchScript
-model (.pt) that can be uploaded to the Developer calibration pipeline.
-
-TorchScript files need NO class imports at load time — they work with any
-environment that has PyTorch installed.
-
-Usage (run from src/backend/):
-    python convert_to_torchscript.py
-
-This script is specific to the CheXpert Classifier, but the same pattern
-works for any model:
-
-    model = YourModel()
-    model.load_state_dict(torch.load("weights.pth", map_location="cpu"))
-    model.eval()
-    traced = torch.jit.trace(model, torch.zeros(1, 3, H, W))
-    torch.jit.save(traced, "model.pt")
-"""
-
 import json
 import sys
 from pathlib import Path

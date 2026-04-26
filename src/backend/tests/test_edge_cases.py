@@ -5,9 +5,7 @@ All data is synthetic — no real files, models, or Azure calls.
 """
 
 import io
-import zipfile
 
-import cv2
 import numpy as np
 import pytest
 import torch

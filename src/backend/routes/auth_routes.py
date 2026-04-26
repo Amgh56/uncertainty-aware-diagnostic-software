@@ -81,6 +81,10 @@ async def login(
 @router.post(
     "/auth/verify-email-otp",
     summary="Verify email with OTP code",
+    description=(
+        "Verify a user's email address using the one-time passcode sent during "
+        "registration or resend flow."
+    ),
     responses={
         200: {"description": "Email verified successfully"},
         400: {"model": ErrorResponse, "description": "Invalid or expired code"},
@@ -94,6 +98,10 @@ def verify_otp_route(body: VerifyOtpRequest, db: Session = Depends(get_db)):
 @router.post(
     "/auth/resend-email-otp",
     summary="Resend email verification OTP",
+    description=(
+        "Send a new email verification code to an unverified account. "
+        "Rate limiting prevents repeated requests during the cooldown window."
+    ),
     responses={
         200: {"description": "New code sent"},
         429: {"model": ErrorResponse, "description": "Cooldown active"},
@@ -110,6 +118,10 @@ async def resend_otp_route(
 @router.post(
     "/auth/forgot-password",
     summary="Request a password reset email",
+    description=(
+        "Start the password reset flow. If the email belongs to an account, "
+        "a reset link/token is sent without revealing whether the account exists."
+    ),
     responses={200: {"description": "Reset email sent if account exists"}},
 )
 async def forgot_password_route(
@@ -122,6 +134,10 @@ async def forgot_password_route(
 @router.post(
     "/auth/reset-password",
     summary="Reset password using token from email",
+    description=(
+        "Complete the password reset flow using the reset token, timestamp, "
+        "and new password submitted by the user."
+    ),
     responses={
         200: {"description": "Password updated"},
         400: {"model": ErrorResponse, "description": "Invalid/expired token or weak password"},

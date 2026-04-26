@@ -1,11 +1,5 @@
-"""
-Run from backend/ folder:
-    python generate_figure.py
-"""
-
 import matplotlib
 matplotlib.use("Agg")
-
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import numpy as np
@@ -83,7 +77,7 @@ CLASS_COLORS = {
 }
 
 
-# ── HELPERS ───────────────────────────────────────────────────────────────────
+# ── AXIS STYLING HELPERS ──────────────────────────────────────────────────────
 def style_bar_axis(ax):
     ax.set_ylim(0, 1.0)
     ax.tick_params(labelsize=10.5, colors=DGREY, length=0)
@@ -96,6 +90,8 @@ def style_bar_axis(ax):
         ax.spines[side].set_linewidth(1.0)
         ax.spines[side].set_color(SOFT_BORDER)
 
+
+# ── PREDICTION LABEL HELPERS ─────────────────────────────────────────────────
 def draw_token_line(ax, tokens, y, fontsize=12):
     """
     Draw a centered colored token line at a given axes y coordinate.
@@ -230,6 +226,7 @@ def draw_set_prediction_lines(ax, lines, y_start=1.068, fontsize=10.8, line_gap=
         ax.add_artist(annotation)
 
 
+# ── BAR ANNOTATION HELPERS ───────────────────────────────────────────────────
 def add_value_labels(ax, bars, values, decimals=4, y_offset=0.02):
     for bar, val in zip(bars, values):
         ax.text(
@@ -437,4 +434,4 @@ plt.savefig(
     edgecolor="none",
 )
 
-print(f"✅ Figure saved → {OUTPUT_FIG}")
+print(f"Figure saved: {OUTPUT_FIG}")

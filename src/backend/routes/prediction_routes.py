@@ -1,5 +1,3 @@
-"""Prediction route handlers: predict, history, detail."""
-
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
 from sqlalchemy.orm import Session

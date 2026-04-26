@@ -1,14 +1,8 @@
-"""
-Shared synthetic-data builders used by conftest.py and test files.
-No app imports here — this module must be safe to import standalone.
-"""
-
 import io
 import json
 import uuid
 import zipfile
 from datetime import datetime, timezone
-
 import cv2
 import numpy as np
 import pandas as pd

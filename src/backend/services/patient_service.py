@@ -3,11 +3,15 @@ from sqlalchemy.orm import Session
 
 from models import User, Patient, Prediction
 from schemas import PatientListItem, PatientListResponse
+from models import PublishedModel
+import json
 
+# ── Patient Creation ─────────────────────────────────────────
 
 def create_or_get_patient(
     mrn: str, first_name: str, last_name: str, user: User, db: Session
 ) -> Patient:
+    """Create a patient for the user, or return the existing one."""
     existing = (
         db.query(Patient)
         .filter(Patient.mrn == mrn.strip(), Patient.user_id == user.id)
@@ -28,8 +32,10 @@ def create_or_get_patient(
     return patient
 
 
+# ── Patient Listing ──────────────────────────────────────────
+
 def list_patients_with_stats(user: User, db: Session) -> PatientListResponse:
-    # Single query: join patients with aggregated prediction stats
+    """List the user's patients with prediction summary stats."""
     last_pred = (
         db.query(
             Prediction.patient_id,
@@ -49,7 +55,6 @@ def list_patients_with_stats(user: User, db: Session) -> PatientListResponse:
         .all()
     )
 
-    # Batch-fetch the latest prediction per patient (for top_finding + id)
     patient_ids = [pat.id for pat, _, last_at in rows if last_at is not None]
     latest_preds = {}
     if patient_ids:
@@ -85,10 +90,10 @@ def list_patients_with_stats(user: User, db: Session) -> PatientListResponse:
     return PatientListResponse(patients=items)
 
 
+# ── Patient Prediction History ───────────────────────────────
+
 def get_patient_predictions(patient_id: int, user: User, db: Session) -> list[dict]:
     """Return all predictions for a given patient, newest first."""
-    from models import PublishedModel
-    import json
 
     patient = (
         db.query(Patient)

@@ -1,7 +1,6 @@
 import os
 import logging
 from pathlib import Path
-
 from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
