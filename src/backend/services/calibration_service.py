@@ -104,6 +104,29 @@ def validate_upload_format(model_file, dataset_file, config_file):
         raise HTTPException(status_code=400, detail="Config file must be a .json file")
 
 
+def format_calibration_error(exc: Exception) -> str:
+    """Return a user-friendly calibration failure message."""
+    raw_message = str(exc)
+    lowered = raw_message.lower()
+
+    if (
+        "the size of tensor a" in lowered
+        and "must match the size of tensor b" in lowered
+    ):
+        return (
+            "Model input size mismatch. Upload a config.json with the width and height "
+            "your model expects, then resubmit."
+        )
+
+    if "could not decode image" in lowered:
+        return (
+            "Dataset image decoding failed. Please check that every file referenced "
+            "in labels.csv is a valid PNG or JPEG image."
+        )
+
+    return raw_message
+
+
 # ── Job CRUD ────────
 
 async def create_job(
@@ -305,43 +328,46 @@ def load_model_from_bytes(model_bytes: bytes) -> torch.nn.Module:
 
 
 def preprocess_image_bytes(img_bytes: bytes, preproc: dict | None) -> np.ndarray:
-    """Decode raw image bytes and return a float32 array of shape (3, H, W) for PyTorch.
+    """Decode an image and return a float32 (3, H, W) tensor ready for inference.
 
-    The function automatically distinguishes grayscale and colour images from the
-    decoded data. Grayscale images are resized, optionally equalised, normalised
-    using pixel_mean/pixel_std, and stacked to 3 channels. Colour images are
-    converted from BGR to RGB, resized, normalised with ImageNet statistics, and
-    reordered to channel-first format.
-
-    If no preprocessing config is provided, default size 224x224 is used.
+    Grayscale images are stacked to 3 identical channels. RGB images are converted
+    from BGR. When a config is provided, images are resized and normalised per its
+    parameters. Without a config, the original dimensions are preserved and pixels
+    are only scaled to [0, 1] — the dataset must already match the model's input size.
     """
     arr = np.frombuffer(img_bytes, dtype=np.uint8)
     bgr = cv2.imdecode(arr, cv2.IMREAD_COLOR)
     if bgr is None:
         raise ValueError("Could not decode image")
 
-    w = int(preproc["width"])  if preproc else 224
-    h = int(preproc["height"]) if preproc else 224
-
     is_grayscale = np.array_equal(bgr[:, :, 0], bgr[:, :, 1]) and \
                    np.array_equal(bgr[:, :, 1], bgr[:, :, 2])
 
-    if is_grayscale:
-        gray = bgr[:, :, 0].astype(np.float32)
-        gray = cv2.resize(gray, (w, h))
-        if preproc and preproc.get("use_equalizeHist", False):
-            gray = cv2.equalizeHist(gray.astype(np.uint8)).astype(np.float32)
-        mean = float(preproc["pixel_mean"]) if preproc else 128.0
-        std  = float(preproc["pixel_std"])  if preproc else 64.0
-        gray = (gray - mean) / std
-        return np.stack([gray, gray, gray], axis=0)
+    if preproc:
+        w = int(preproc["width"])
+        h = int(preproc["height"])
+        if is_grayscale:
+            gray = bgr[:, :, 0].astype(np.float32)
+            gray = cv2.resize(gray, (w, h))
+            if preproc.get("use_equalizeHist", False):
+                gray = cv2.equalizeHist(gray.astype(np.uint8)).astype(np.float32)
+            gray = (gray - float(preproc["pixel_mean"])) / float(preproc["pixel_std"])
+            return np.stack([gray, gray, gray], axis=0)
+        else:
+            rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB).astype(np.float32) / 255.0
+            rgb = cv2.resize(rgb, (w, h))
+            mean = np.array([0.485, 0.456, 0.406], dtype=np.float32)
+            std  = np.array([0.229, 0.224, 0.225], dtype=np.float32)
+            rgb = (rgb - mean) / std
+            return rgb.transpose(2, 0, 1)
     else:
-        rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB).astype(np.float32) / 255.0
-        rgb = cv2.resize(rgb, (w, h))
-        mean = np.array([0.485, 0.456, 0.406], dtype=np.float32)
-        std  = np.array([0.229, 0.224, 0.225], dtype=np.float32)
-        rgb = (rgb - mean) / std
-        return rgb.transpose(2, 0, 1)  # (H, W, 3) → (3, H, W)
+        # No config: preserve original size, scale to [0, 1] only
+        if is_grayscale:
+            gray = bgr[:, :, 0].astype(np.float32) / 255.0
+            return np.stack([gray, gray, gray], axis=0)
+        else:
+            rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB).astype(np.float32) / 255.0
+            return rgb.transpose(2, 0, 1)
 
 
 def forward(model: torch.nn.Module, x: torch.Tensor) -> np.ndarray:
@@ -567,7 +593,7 @@ def run_calibration_job(job_id: str) -> None:
         try:
             db.query(CalibrationJob).filter(CalibrationJob.id == job_id).update({
                 "status": JobStatus.FAILED.value,
-                "error_message": str(exc),
+                "error_message": format_calibration_error(exc),
                 "completed_at": datetime.now(timezone.utc),
             })
             db.commit()

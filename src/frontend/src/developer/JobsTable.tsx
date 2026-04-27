@@ -30,6 +30,10 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
+function shortErrorMessage(message: string) {
+  return message.length > 120 ? `${message.slice(0, 117)}...` : message;
+}
+
 interface JobsTableProps {
   token: string;
   onNewJob?: () => void;
@@ -181,7 +185,7 @@ export default function JobsTable({ token, onNewJob }: JobsTableProps) {
                   )}
                   {job.status === "failed" && job.error_message && (
                     <span className="dev-job-error-tooltip" title={job.error_message}>
-                      Error
+                      {shortErrorMessage(job.error_message)}
                     </span>
                   )}
                   <button
