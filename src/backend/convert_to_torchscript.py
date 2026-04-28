@@ -14,9 +14,8 @@ STATE_DICT_PATH = CONFIG_DIR / "pre_train.pth"
 OUTPUT_PATH = CONFIG_DIR / "pre_train_torchscript.pt"
 EXAMPLE_JSON = CONFIG_DIR / "example.json"
 
-# --- make sure CheXpert model code is importable ---
 sys.path.insert(0, str(CHEXPERT_DIR))
-from model.classifier import Classifier  # noqa: E402
+from model.classifier import Classifier  
 
 
 class _InferenceWrapper(torch.nn.Module):
