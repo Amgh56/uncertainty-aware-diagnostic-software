@@ -126,16 +126,22 @@ def publish_model(
     # Upload model to published models bucket
     model_id = str(uuid.uuid4())
     artifact_path = f"{model_id}/model.pth"
-    upload_to_bucket(BUCKET_MODELS, artifact_path, model_bytes)
+    try:
+        upload_to_bucket(BUCKET_MODELS, artifact_path, model_bytes)
+    except Exception:
+        raise HTTPException(status_code=503, detail="Failed to upload model artifact. Please try again.")
 
     # Copy config only if the job had one
     config_json_str = None
     if job.config_filename:
-        config_bytes = download_from_bucket(
-            BUCKET_CALIBRATION, f"{calibration_job_id}/config.json"
-        )
-        upload_to_bucket(BUCKET_MODELS, f"{model_id}/config.json", config_bytes, "application/json")
-        config_json_str = config_bytes.decode()
+        try:
+            config_bytes = download_from_bucket(
+                BUCKET_CALIBRATION, f"{calibration_job_id}/config.json"
+            )
+            upload_to_bucket(BUCKET_MODELS, f"{model_id}/config.json", config_bytes, "application/json")
+            config_json_str = config_bytes.decode()
+        except Exception:
+            raise HTTPException(status_code=503, detail="Failed to copy config artifact. Please try again.")
 
     # Build validation metrics from result
     metrics = result_data.get("metrics", {})

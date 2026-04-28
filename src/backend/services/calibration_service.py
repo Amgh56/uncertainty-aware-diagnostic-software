@@ -179,10 +179,19 @@ async def create_job(
     display_name = f"Calibration_Job{job_count + 1}"
 
     # Upload files to azure blob storage
-    upload_to_bucket(BUCKET_CALIBRATION, job_path(job_id, "model.pth"), model_bytes)
-    upload_to_bucket(BUCKET_CALIBRATION, job_path(job_id, "dataset.zip"), dataset_bytes, "application/zip")
-    if config_bytes is not None:
-        upload_to_bucket(BUCKET_CALIBRATION, job_path(job_id, "config.json"), config_bytes, "application/json")
+    try:
+        upload_to_bucket(BUCKET_CALIBRATION, job_path(job_id, "model.pth"), model_bytes)
+        upload_to_bucket(BUCKET_CALIBRATION, job_path(job_id, "dataset.zip"), dataset_bytes, "application/zip")
+        if config_bytes is not None:
+            upload_to_bucket(BUCKET_CALIBRATION, job_path(job_id, "config.json"), config_bytes, "application/json")
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Azure upload failed while saving the calibration files. "
+                "Please check your connection and try again."
+            ),
+        ) from exc
 
     now = datetime.now(timezone.utc)
     job = CalibrationJob(
@@ -616,13 +625,12 @@ VALIDATION_ALPHAS = np.linspace(0.001, 0.99, 200).tolist()
 def load_validation_artifacts(job_id: str):
     """Download saved numpy artifacts from Azure for a completed job."""
     try:
-        probs_bytes = download_from_bucket(BUCKET_CALIBRATION, result_path(job_id, "cal_probs.npy"))
+        probs_bytes  = download_from_bucket(BUCKET_CALIBRATION, result_path(job_id, "cal_probs.npy"))
+        labels_bytes = download_from_bucket(BUCKET_CALIBRATION, result_path(job_id, "cal_labels.npy"))
+        mask_bytes   = download_from_bucket(BUCKET_CALIBRATION, result_path(job_id, "cal_pos_mask.npy"))
+        names_bytes  = download_from_bucket(BUCKET_CALIBRATION, result_path(job_id, "label_names.json"))
     except Exception:
         return None
-
-    labels_bytes = download_from_bucket(BUCKET_CALIBRATION, result_path(job_id, "cal_labels.npy"))
-    mask_bytes = download_from_bucket(BUCKET_CALIBRATION, result_path(job_id, "cal_pos_mask.npy"))
-    names_bytes = download_from_bucket(BUCKET_CALIBRATION, result_path(job_id, "label_names.json"))
 
     probs = np.load(io.BytesIO(probs_bytes))
     labels = np.load(io.BytesIO(labels_bytes))

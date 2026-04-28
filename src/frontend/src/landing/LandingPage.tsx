@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import doctorsIllustration from "../assets/doctors-illustration.svg";
 import {
@@ -130,13 +130,8 @@ function FaqItem({ q, a }: { q: string; a: string }) {
 
 /* ── Page ── */
 export default function LandingPage() {
-  const { token } = useAuth();
-  const navigate = useNavigate();
+  const { token, doctor } = useAuth();
   const [scrolled, setScrolled] = useState(false);
-
-  useEffect(() => {
-    if (token) navigate("/home", { replace: true });
-  }, [token, navigate]);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 10);
@@ -150,7 +145,7 @@ export default function LandingPage() {
     document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
   };
 
-  if (token) return null;
+  const signedInPath = doctor?.role === "developer" ? "/developer" : "/home";
 
   return (
     <div className="landing-page">
@@ -172,7 +167,9 @@ export default function LandingPage() {
             <a href="#clinicians" onClick={scrollTo("clinicians")} className="landing-nav-link">Clinicians</a>
           </div>
           <div className="landing-nav-right">
-            <Link to="/login" className="landing-nav-signin">Sign In</Link>
+            <Link to={token ? signedInPath : "/login"} className="landing-nav-signin">
+              Sign In
+            </Link>
           </div>
         </div>
       </nav>
